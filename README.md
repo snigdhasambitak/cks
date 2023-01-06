@@ -273,7 +273,7 @@ The task requires us to store logs for "unwanted package management processes" i
 
 Find the rule which looks like this:
 
-```sh
+```yaml
 # Container is supposed to be immutable. Package management should be done in building the image.
 - rule: Launch Package Management Process in Container
   desc: Package management process ran inside container
@@ -293,7 +293,7 @@ Find the rule which looks like this:
 ```  
 Should be changed into the required format:
 
-```sh
+```yaml
 # Container is supposed to be immutable. Package management should be done in building the image.
 - rule: Launch Package Management Process in Container
   desc: Package management process ran inside container
@@ -359,45 +359,57 @@ There is also a file /etc/falco/falco_rules.local.yaml in which we can override 
 
 ## Question 3 | Apiserver Security
 
-####Task weight: 3%
+#### Task weight: 3%
 
  
 
-Use context: kubectl config use-context workload-prod
+Use context: `kubectl config use-context workload-prod`
 
  
 
 You received a list from the DevSecOps team which performed a security investigation of the k8s cluster1 (workload-prod). The list states the following about the apiserver setup:
 
-Accessible through a NodePort Service
+* Accessible through a NodePort Service
+
 Change the apiserver setup so that:
 
-Only accessible through a ClusterIP Service
+* Only accessible through a ClusterIP Service
  
 
-Answer:
+#### Answer:
+
 In order to modify the parameters for the apiserver, we first ssh into the master node and check which parameters the apiserver process is running with:
 
+```sh
 ➜ ssh cluster1-controlplane1
 
 ➜ root@cluster1-controlplane1:~# ps aux | grep kube-apiserver
 root     13534  8.6 18.1 1099208 370684 ?      Ssl  19:55   8:40 kube-apiserver --advertise-address=192.168.100.11 --allow-privileged=true --anonymous-auth=true --authorization-mode=Node,RBAC --client-ca-file=/etc/kubernetes/pki/ca.crt --enable-admission-plugins=NodeRestriction --enable-bootstrap-token-auth=true --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key --etcd-servers=https://127.0.0.1:2379 --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname --kubernetes-service-node-port=31000 --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt --proxy-client-key-
 ...
+```
 We may notice the following argument:
 
+```sh
 --kubernetes-service-node-port=31000
+```
 We can also check the Service and see its of type NodePort:
 
+```sh
 ➜ root@cluster1-controlplane1:~# kubectl get svc
 NAME         TYPE       CLUSTER-IP   EXTERNAL-IP   PORT(S)         AGE
 kubernetes   NodePort   10.96.0.1    <none>        443:31000/TCP   5d2h
+```
 The apiserver runs as a static Pod, so we can edit the manifest. But before we do this we also create a copy in case we mess things up:
 
+```sh
 ➜ root@cluster1-controlplane1:~# cp /etc/kubernetes/manifests/kube-apiserver.yaml ~/3_kube-apiserver.yaml
 
 ➜ root@cluster1-controlplane1:~# vim /etc/kubernetes/manifests/kube-apiserver.yaml
+```
+
 We should remove the unsecure settings:
 
+```yaml
 # /etc/kubernetes/manifests/kube-apiserver.yaml
 apiVersion: v1
 kind: Pod
@@ -431,8 +443,11 @@ spec:
     - --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt
     - --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key
 ...
+```
+
 Once the changes are made, give the apiserver some time to start up again. Check the apiserver's Pod status and the process parameters:
 
+```sh
 ➜ root@cluster1-controlplane1:~# kubectl -n kube-system get pod | grep apiserver
 kube-apiserver-cluster1-controlplane1            1/1     Running        0          38s
 
@@ -446,40 +461,48 @@ We need to delete the Service for the changes to take effect:
 
 ➜ root@cluster1-controlplane1:~# kubectl delete svc kubernetes
 service "kubernetes" deleted
+```
+
 After a few seconds:
 
+```sh
 ➜ root@cluster1-controlplane1:~# kubectl get svc
 NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
 kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   6s
+```
+
 This should satisfy the DevSecOps team.
 
  
-
  
 
 ## Question 4 | Pod Security Standard
-Task weight: 8%
+
+#### Task weight: 8%
+
+
+Use context: `kubectl config use-context workload-prod`
 
  
 
-Use context: kubectl config use-context workload-prod
+There is Deployment `container-host-hacker` in Namespace `team-red` which mounts `/run/containerd` as a hostPath volume on the Node where its running. This means that the Pod can access various data about other containers running on the same Node.
+
+To prevent this configure Namespace `team-red` to enforce the `baseline` Pod Security Standard. Once completed, delete the Pod of the Deployment mentioned above.
+
+Check the ReplicaSet events and write the event/log lines containing the reason why the Pod isn't recreated into `/opt/course/4/logs`.
 
  
 
-There is Deployment container-host-hacker in Namespace team-red which mounts /run/containerd as a hostPath volume on the Node where its running. This means that the Pod can access various data about other containers running on the same Node.
+#### Answer:
 
-To prevent this configure Namespace team-red to enforce the baseline Pod Security Standard. Once completed, delete the Pod of the Deployment mentioned above.
-
-Check the ReplicaSet events and write the event/log lines containing the reason why the Pod isn't recreated into /opt/course/4/logs.
-
- 
-
-Answer:
 Making Namespaces use Pod Security Standards works via labels. We can simply edit it:
-
+```sh
 k edit ns team-red
+```
+
 Now we configure the requested label:
 
+```yaml
 # kubectl edit namespace team-red
 apiVersion: v1
 kind: Namespace
@@ -489,8 +512,11 @@ metadata:
     pod-security.kubernetes.io/enforce: baseline # add
   name: team-red
 ...
+```
+
 This should already be enough for the default Pod Security Admission Controller to pick up on that change. Let's test it and delete the Pod to see if it'll be recreated or fails, it should fail!
 
+```sh
 ➜ k -n team-red get pod
 NAME                                    READY   STATUS    RESTARTS   AGE
 container-host-hacker-dbf989777-wm8fc   1/1     Running   0          115s
@@ -500,8 +526,11 @@ pod "container-host-hacker-dbf989777-wm8fc" deleted
 
 ➜ k -n team-red get pod
 No resources found in team-red namespace.
+```
+
 Usually the ReplicaSet of a Deployment would recreate the Pod if deleted, here we see this doesn't happen. Let's check why:
 
+```sh
 ➜ k -n team-red get rs
 NAME                              DESIRED   CURRENT   READY   AGE
 container-host-hacker-dbf989777   1         0         0       5m25s
@@ -516,28 +545,30 @@ Events:
 ...
   Warning  FailedCreate      2m41s                 replicaset-controller  Error creating: pods "container-host-hacker-dbf989777-bjwgv" is forbidden: violates PodSecurity "baseline:latest": hostPath volumes (volume "containerdata")
   Warning  FailedCreate      2m2s (x9 over 2m40s)  replicaset-controller  (combined from similar events): Error creating: pods "container-host-hacker-dbf989777-kjfpn" is forbidden: violates PodSecurity "baseline:latest": hostPath volumes (volume "containerdata")
+  ```
 There we go! Finally we write the reason into the requested file so that Mr Scoring will be happy too!
 
+```sh
 # /opt/course/4/logs
 Warning  FailedCreate      2m2s (x9 over 2m40s)  replicaset-controller  (combined from similar events): Error creating: pods "container-host-hacker-dbf989777-kjfpn" is forbidden: violates PodSecurity "baseline:latest": hostPath volumes (volume "containerdata")
 Pod Security Standards can give a great base level of security! But when one finds themselves wanting to deeper adjust the levels like baseline or restricted... this isn't possible and 3rd party solutions like OPA could be looked at.
-
- 
+```
 
  
 
 ## Question 5 | CIS Benchmark
-Task weight: 3%
+
+#### Task weight: 3%
 
  
 
-Use context: kubectl config use-context infra-prod
+Use context: `kubectl config use-context infra-prod`
 
  
 
-You're ask to evaluate specific settings of cluster2 against the CIS Benchmark recommendations. Use the tool kube-bench which is already installed on the nodes.
+You're ask to evaluate specific settings of `cluster2` against the CIS Benchmark recommendations. Use the tool kube-bench which is already installed on the nodes.
 
-Connect using ssh cluster2-controlplane1 and ssh cluster2-node1.
+Connect using `ssh cluster2-controlplane1` and `ssh cluster2-node1`.
 
 On the master node ensure (correct if necessary) that the CIS recommendations are set for:
 
