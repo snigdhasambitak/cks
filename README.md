@@ -946,9 +946,11 @@ You can also verify your changes by looking at the existing Deployment untrusted
 
  
 
-Answer:
+#### Answer:
+
 We look at existing OPA constraints, these are implemeted using CRDs by Gatekeeper:
 
+```sh
 ➜ k get crd
 NAME                                                 CREATED AT
 blacklistimages.constraints.gatekeeper.sh            2020-09-14T19:29:31Z
@@ -957,17 +959,25 @@ constraintpodstatuses.status.gatekeeper.sh           2020-09-14T19:29:05Z
 constrainttemplatepodstatuses.status.gatekeeper.sh   2020-09-14T19:29:05Z
 constrainttemplates.templates.gatekeeper.sh          2020-09-14T19:29:05Z
 requiredlabels.constraints.gatekeeper.sh             2020-09-14T19:29:31Z
+```
+
 So we can do:
 
+```sh
 ➜ k get constraint
 NAME                                                           AGE
 blacklistimages.constraints.gatekeeper.sh/pod-trusted-images   10m
 
 NAME                                                                  AGE
 requiredlabels.constraints.gatekeeper.sh/namespace-mandatory-labels   10m
+```
+
 and then look at the one that is probably about blacklisting images:
 
+```sh
 k edit blacklistimages pod-trusted-images
+```
+```yaml
 # kubectl edit blacklistimages pod-trusted-images
 apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: BlacklistImages
@@ -980,9 +990,14 @@ spec:
       - ""
       kinds:
       - Pod
+````      
 It looks like this constraint simply applies the template to all Pods, no arguments passed. So we edit the template:
 
+```sh
 k edit constrainttemplates blacklistimages
+```
+
+```yaml
 # kubectl edit constrainttemplates blacklistimages
 apiVersion: templates.gatekeeper.sh/v1beta1
 kind: ConstraintTemplate
@@ -1009,12 +1024,18 @@ spec:
         msg := "not trusted image!"
       }
     target: admission.k8s.gatekeeper.sh
+```
+
 We simply have to add another line. After editing we try to create a Pod of the bad image:
 
+```sh
 ➜ k run opa-test --image=very-bad-registry.com/image
 Error from server ([denied by pod-trusted-images] not trusted image!): admission webhook "validation.gatekeeper.sh" denied the request: [denied by pod-trusted-images] not trusted image!
+```
+
 Nice! After some time we can also see that Pods of the existing Deployment "untrusted" will be listed as violators:
 
+```sh
 ➜ k describe blacklistimages pod-trusted-images
 ...
   Total Violations:  2
@@ -1029,6 +1050,8 @@ Nice! After some time we can also see that Pods of the existing Deployment "untr
     Name:                untrusted-68c4944d48-tfsnb
     Namespace:           default
 Events:                  <none>
+```
+
 Great, OPA fights bad registries !
 
  
@@ -1036,34 +1059,38 @@ Great, OPA fights bad registries !
  
 
 ## Question 8 | Secure Kubernetes Dashboard
-Task weight: 3%
 
- 
+#### Task weight: 3%
 
-Use context: kubectl config use-context workload-prod
+
+Use context: `kubectl config use-context workload-prod`
 
  
 
 The Kubernetes Dashboard is installed in Namespace kubernetes-dashboard and is configured to:
 
-Allow users to "skip login"
-Allow insecure access (HTTP without authentication)
-Allow basic authentication
-Allow access from outside the cluster
+* Allow users to "skip login"
+* Allow insecure access (HTTP without authentication)
+* Allow basic authentication
+* Allow access from outside the cluster
+
+
 You are asked to make it more secure by:
 
-Deny users to "skip login"
-Deny insecure access, enforce HTTPS (self signed certificates are ok for now)
-Add the --auto-generate-certificates argument
-Enforce authentication using a token (with possibility to use RBAC)
-Allow only cluster internal access
+* Deny users to "skip login"
+* Deny insecure access, enforce HTTPS (self signed certificates are ok for now)
+* Add the --auto-generate-certificates argument
+* Enforce authentication using a token (with possibility to use RBAC)
+* Allow only cluster internal access
  
 
-Answer:
+#### Answer:
+
 Head to https://github.com/kubernetes/dashboard/tree/master/docs to find documentation about the dashboard. This link is not on the allowed list of urls during the real exam. This means you should be provided will all information necessary in case of a task like this.
 
 First we have a look in Namespace kubernetes-dashboard:
 
+```sh
 ➜ k -n kubernetes-dashboard get pod,svc
 NAME                                             READY   STATUS    RESTARTS   AGE
 pod/dashboard-metrics-scraper-7b59f7d4df-fbpd9   1/1     Running   0          24m
@@ -1072,10 +1099,13 @@ pod/kubernetes-dashboard-6d8cd5dd84-w7wr2        1/1     Running   0          24
 NAME                                TYPE        ...   PORT(S)                        AGE
 service/dashboard-metrics-scraper   ClusterIP   ...   8000/TCP                       24m
 service/kubernetes-dashboard        NodePort    ...   9090:32520/TCP,443:31206/TCP   24m
+```
+
 We can see one running Pod and a NodePort Service exposing it. Let's try to connect to it via a NodePort, we can use IP of any Node:
 
 (your port might be a different)
 
+```sh
 ➜ k get node -o wide
 NAME                     STATUS   ROLES    AGE   VERSION   INTERNAL-IP    ...
 cluster1-controlplane1   Ready    master   37m   v1.24.1   192.168.100.11 ...
@@ -1091,16 +1121,26 @@ you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
+    
+```
+
 The dashboard is not secured because it allows unsecure HTTP access without authentication and is exposed externally. It's is loaded with a few parameter making it insecure, let's fix this.
 
 First we create a backup in case we need to undo something:
 
+```sh
 k -n kubernetes-dashboard get deploy kubernetes-dashboard -oyaml > 8_deploy_kubernetes-dashboard.yaml
+```
+
 Then:
 
+```sh
 k -n kubernetes-dashboard edit deploy kubernetes-dashboard
+```
+
 The changes to make are :
 
+```sh
   template:
     spec:
       containers:
@@ -1113,14 +1153,20 @@ The changes to make are :
         image: kubernetesui/dashboard:v2.0.3
         imagePullPolicy: Always
         name: kubernetes-dashboard
+```
 
 Next, we'll have to deal with the NodePort Service:
+
+```sh
 
 k -n kubernetes-dashboard get svc kubernetes-dashboard -o yaml > 8_svc_kubernetes-dashboard.yaml # backup
 
 k -n kubernetes-dashboard edit svc kubernetes-dashboard
+```
+
 And make the following changes:
 
+```yaml
  spec:
   clusterIP: 10.107.176.19
   externalTrafficPolicy: Cluster   # delete
@@ -1142,9 +1188,11 @@ And make the following changes:
   type: ClusterIP                  # change or delete
 status:
   loadBalancer: {}
+```
 
 Let's confirm the changes, we can do that even without having a browser:
 
+```sh
 ➜ k run tmp --image=nginx:1.19.2 --restart=Never --rm -it -- bash
 If you don't see a command prompt, try pressing enter.
 root@tmp:/# curl http://kubernetes-dashboard.kubernetes-dashboard:9090
@@ -1161,10 +1209,13 @@ how to fix it, please visit the web page mentioned above.
 ➜ root@tmp:/# curl https://kubernetes-dashboard.kubernetes-dashboard -k
 <!--
 Copyright 2017 The Kubernetes Authors.
+```
+
 We see that insecure access is disabled and HTTPS works (using a self signed certificate for now). Let's also check the remote access:
 
 (your port might be a different)
 
+```sh
 ➜ curl http://192.168.100.11:32520
 curl: (7) Failed to connect to 192.168.100.11 port 32520: Connection refused
 
@@ -1172,45 +1223,52 @@ curl: (7) Failed to connect to 192.168.100.11 port 32520: Connection refused
 NAME                        TYPE        CLUSTER-IP       ...   PORT(S)
 dashboard-metrics-scraper   ClusterIP   10.111.171.247   ...   8000/TCP
 kubernetes-dashboard        ClusterIP   10.100.118.128   ...   9090/TCP,443/TCP
+```
+
 Much better.
 
  
 
- 
-
 ## Question 9 | AppArmor Profile
-Task weight: 3%
+
+#### Task weight: 3%
 
  
 
-Use context: kubectl config use-context workload-prod
+Use context: `kubectl config use-context workload-prod`
 
  
 
-Some containers need to run more secure and restricted. There is an existing AppArmor profile located at /opt/course/9/profile for this.
+Some containers need to run more secure and restricted. There is an existing AppArmor profile located at `/opt/course/9/profile` for this.
 
-Install the AppArmor profile on Node cluster1-node1. Connect using ssh cluster1-node1.
+* Install the AppArmor profile on Node `cluster1-node1`. Connect using `ssh cluster1-node1`.
 
-Add label security=apparmor to the Node
+* Add label s`ecurity=apparmor` to the Node
 
-Create a Deployment named apparmor in Namespace default with:
+* Create a Deployment named `apparmor` in Namespace `default` with:
 
-One replica of image nginx:1.19.2
-NodeSelector for security=apparmor
-Single container named c1 with the AppArmor profile enabled
+** One replica of image `nginx:1.19.2`
+** NodeSelector for `security=apparmor`
+** Single container named c1 with the AppArmor profile enabled
+
 The Pod might not run properly with the profile enabled. Write the logs of the Pod into /opt/course/9/logs so another team can work on getting the application running.
 
  
 
-Answer:
+#### Answer:
 https://kubernetes.io/docs/tutorials/clusters/apparmor
 
  
 
-Part 1
+###### Part 1
+
 First we have a look at the provided profile:
 
+```sh
 vim /opt/course/9/profile
+```
+
+```yam
 # /opt/course/9/profile 
 
 #include <tunables/global>
@@ -1223,8 +1281,11 @@ profile very-secure flags=(attach_disconnected) {
   # Deny all file writes.
   deny /** w,
 }
+```
+
 Very simple profile named very-secure which denies all file writes. Next we copy it onto the Node:
 
+```sh
 ➜ scp /opt/course/9/profile cluster1-node1:~/
 Warning: Permanently added the ECDSA host key for IP address '192.168.100.12' to the list of known hosts.
 profile                                                                           100%  161   329.9KB/s   00:00
@@ -1233,11 +1294,17 @@ profile                                                                         
 
 ➜ root@cluster1-node1:~# ls
 profile
+```
+
 And install it:
 
+```sh
 ➜ root@cluster1-node1:~# apparmor_parser -q ./profile
+```
+
 Verify it has been installed:
 
+```sh
 ➜ root@cluster1-node1:~# apparmor_status
 apparmor module is loaded.
 17 profiles are loaded.
@@ -1253,23 +1320,32 @@ apparmor module is loaded.
 ...
 0 processes are in complain mode.
 0 processes are unconfined but have a profile defined.
+```
+
 There we see among many others the very-secure one, which is the name of the profile specified in /opt/course/9/profile.
 
  
 
-Part 2
+###### Part 2
+
 We label the Node:
 
+```sh
 k label -h # show examples
 
 k label node cluster1-node1 security=apparmor
+```
+
  
 
-Part 3
+###### Part 3
 Now we can go ahead and create the Deployment which uses the profile.
 
+```sh
 k create deploy apparmor --image=nginx:1.19.2 $do > 9_deploy.yaml
+```
 
+```yaml
 vim 9_deploy.yaml
 # 9_deploy.yaml
 apiVersion: apps/v1
@@ -1300,9 +1376,15 @@ spec:
       - image: nginx:1.19.2
         name: c1                       # change
         resources: {}
+````           
+  
+```sh  
 k -f 9_deploy.yaml create
+```
+
 What the damage?
 
+```sh
 ➜ k get pod -owide | grep apparmor
 apparmor-85c65645dc-jbch8     0/1     CrashLoopBackOff  ...   cluster1-node1
 
@@ -1311,10 +1393,13 @@ apparmor-85c65645dc-jbch8     0/1     CrashLoopBackOff  ...   cluster1-node1
 /docker-entrypoint.sh: No files found in /docker-entrypoint.d/, skipping configuration
 2021/09/15 11:51:57 [emerg] 1#1: mkdir() "/var/cache/nginx/client_temp" failed (13: Permission denied)
 nginx: [emerg] mkdir() "/var/cache/nginx/client_temp" failed (13: Permission denied)
+```
+
 This looks alright, the Pod is running on cluster1-node1 because of the nodeSelector. The AppArmor profile simply denies all filesystem writes, but Nginx needs to write into some locations to run, hence the errors.
 
 It looks like our profile is running but we can confirm this as well by inspecting the container:
 
+```sh
 ➜ ssh cluster1-node1
 
 ➜ root@cluster1-node1:~# crictl pods | grep apparmor
@@ -1326,14 +1411,18 @@ e4d91cbdf72fb    ...  Exited       c1           6            be5c0aecee7c7
 ➜ root@cluster1-node1:~# crictl inspect e4d91cbdf72fb | grep -i profile
           "apparmor_profile": "localhost/very-secure",
         "apparmorProfile": "very-secure",
-First we find the Pod by it's name and get the pod-id. Next we use crictl ps -a to also show stopped containers. Then crictl inspect shows that the container is using our AppArmor profile. Notice to be fast between ps and inspect as K8s will restart the Pod periodically when in error state.
+        
+```
+ 
+First we find the Pod by it's name and get the pod-id. Next we use `crictl ps -a` to also show stopped containers. Then `crictl inspect` shows that the container is using our AppArmor profile. Notice to be fast between `ps` and `inspect` as K8s will restart the Pod periodically when in error state.
 
 To complete the task we write the logs into the required location:
 
+```sh
 k logs apparmor-85c65645dc-jbch8 > /opt/course/9/logs
-Fixing the errors is the job of another team, lucky us.
+```
 
- 
+Fixing the errors is the job of another team, lucky us.
 
  
 
