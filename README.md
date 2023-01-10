@@ -2845,30 +2845,35 @@ By running cat audit.log | grep "p.auster" | grep Secret | grep password we can 
  
 
 ## Question 19 | Immutable Root FileSystem
-Task weight: 2%
+
+#### Task weight: 2%
+ 
+
+Use context: `kubectl config use-context workload-prod`
 
  
 
-Use context: kubectl config use-context workload-prod
+The Deployment `immutable-deployment` in Namespace `team-purple` should run immutable, it's created from file `/opt/course/19/immutable-deployment.yaml`. Even after a successful break-in, it shouldn't be possible for an attacker to modify the filesystem of the running container.
+
+Modify the Deployment in a way that no processes inside the container can modify the local filesystem, only `/tmp` directory should be writeable. Don't modify the Docker image.
+
+Save the updated YAML under `/opt/course/19/immutable-deployment-new.yaml` and update the running Deployment.
 
  
 
-The Deployment immutable-deployment in Namespace team-purple should run immutable, it's created from file /opt/course/19/immutable-deployment.yaml. Even after a successful break-in, it shouldn't be possible for an attacker to modify the filesystem of the running container.
+#### Answer:
 
-Modify the Deployment in a way that no processes inside the container can modify the local filesystem, only /tmp directory should be writeable. Don't modify the Docker image.
-
-Save the updated YAML under /opt/course/19/immutable-deployment-new.yaml and update the running Deployment.
-
- 
-
-Answer:
 Processes in containers can write to the local filesystem by default. This increases the attack surface when a non-malicious process gets hijacked. Preventing applications to write to disk or only allowing to certain directories can mitigate the risk. If there is for example a bug in Nginx which allows an attacker to override any file inside the container, then this only works if the Nginx process itself can write to the filesystem in the first place.
 
 Making the root filesystem readonly can be done in the Docker image itself or in a Pod declaration.
 
-Let us first check the Deployment immutable-deployment in Namespace team-purple:
+Let us first check the Deployment `immutable-deployment` in Namespace `team-purple`:
 
+```sh
 ➜ k -n team-purple edit deploy -o yaml
+```
+
+```yaml
 # kubectl -n team-purple edit deploy -o yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -2895,13 +2900,19 @@ spec:
         name: busybox
       restartPolicy: Always
 ...
+```
+
 The container has write access to the Root File System, as there are no restrictions defined for the Pods or containers by an existing SecurityContext. And based on the task we're not allowed to alter the Docker image.
 
 So we modify the YAML manifest to include the required changes:
 
+```sh
 cp /opt/course/19/immutable-deployment.yaml /opt/course/19/immutable-deployment-new.yaml
 
 vim /opt/course/19/immutable-deployment-new.yaml
+```
+
+```yaml
 # /opt/course/19/immutable-deployment-new.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -2934,17 +2945,24 @@ spec:
       - name: temp-vol                    # add
         emptyDir: {}                      # add
       restartPolicy: Always
+      
+```
+
 SecurityContexts can be set on Pod or container level, here the latter was asked. Enforcing readOnlyRootFilesystem: true will render the root filesystem readonly. We can then allow some directories to be writable by using an emptyDir volume.
 
 Once the changes are made, let us update the Deployment:
 
+```sh
 ➜ k delete -f /opt/course/19/immutable-deployment-new.yaml
 deployment.apps "immutable-deployment" deleted
 
 ➜ k create -f /opt/course/19/immutable-deployment-new.yaml
 deployment.apps/immutable-deployment created
+```
+
 We can verify if the required changes are propagated:
 
+```sh
 ➜ k -n team-purple exec immutable-deployment-5b7ff8d464-j2nrj -- touch /abc.txt
 touch: /abc.txt: Read-only file system
 command terminated with exit code 1
@@ -2961,41 +2979,48 @@ command terminated with exit code 1
 
 ➜ k -n team-purple exec immutable-deployment-5b7ff8d464-j2nrj -- ls /tmp
 abc.txt
+```
+
 The Deployment has been updated so that the container's file system is read-only, and the updated YAML has been placed under the required location. Sweet!
 
- 
 
  
 
 ## Question 20 | Update Kubernetes
-Task weight: 8%
+
+
+#### Task weight: 8%
 
  
 
-Use context: kubectl config use-context workload-stage
+Use context: `kubectl config use-context workload-stage`
 
  
 
-The cluster is running Kubernetes 1.24.7, update it to 1.25.2.
+The cluster is running Kubernetes `1.24.7`, update it to `1.25.2`.
 
-Use apt package manager and kubeadm for this.
+Use `apt` package manager and `kubeadm` for this.
 
-Use ssh cluster3-controlplane1 and ssh cluster3-node1 to connect to the instances.
+Use `ssh cluster3-controlplane1` and `ssh cluster3-node1` to connect to the instances.
 
  
 
-Answer:
+#### Answer:
+
 Let's have a look at the current versions:
 
+```sh
 ➜ k get node
 NAME                     STATUS   ROLES           AGE   VERSION
 cluster3-controlplane1   Ready    control-plane   21d   v1.24.7
 cluster3-node1           Ready    <none>          21d   v1.24.7
- 
+``` 
 
-Control Plane Master Components
+###### Control Plane Master Components
+
 First we should update the control plane components running on the master node, so we drain it:
 
+```sh
 ➜ k drain cluster3-controlplane1 --ignore-daemonsets
 Next we ssh into it and check versions:
 
@@ -3006,15 +3031,21 @@ kubeadm version: &version.Info{Major:"1", Minor:"24", GitVersion:"v1.24.1", GitC
 
 ➜ root@cluster3-controlplane1:~# kubelet --version
 Kubernetes v1.23.1
-We see kubeadm is already installed in the required version. Else we would need to install it:
+```
 
+We see `kubeadm` is already installed in the required version. Else we would need to install it:
+
+```sh
 # not necessary because here kubeadm is already installed in correct version
 apt-mark unhold kubeadm
 apt-mark hold kubectl kubelet
 apt install kubeadm=1.24.1-00
 apt-mark hold kubeadm
+```
+
 Check what kubeadm has available as an upgrade plan:
 
+```sh
 ➜ root@cluster3-controlplane1:~# kubeadm upgrade plan
 ...
 [upgrade/config] Making sure the configuration is correct:
@@ -3037,8 +3068,11 @@ You can now apply the upgrade by executing the following command:
 
 Note: Before you can perform this upgrade, you have to update kubeadm to v1.24.3.
 ...
+```
+
 And we apply to the required version:
 
+```sh
 ➜ root@cluster3-controlplane1:~# kubeadm upgrade apply v1.24.1
 [upgrade/config] Making sure the configuration is correct:
 [upgrade/config] Reading configuration from the cluster...
@@ -3054,10 +3088,12 @@ W0804 11:15:35.345360   32762 initconfiguration.go:120] Usage of CRI endpoints w
 ....
 
 [upgrade/successful] SUCCESS! Your cluster was upgraded to "v1.24.1". Enjoy!
- 
+```
+
 
 Next we can check if our required version was installed correctly:
 
+```sh
 ➜ root@cluster3-controlplane1:~# kubeadm upgrade plan
 [upgrade/config] Making sure the configuration is correct:
 [upgrade/config] Reading configuration from the cluster...
@@ -3071,9 +3107,11 @@ Next we can check if our required version was installed correctly:
 [upgrade/versions] Latest version in the v1.24 series: v1.24.3
 
 ...
- 
+```
 
-Control Plane kubelet and kubectl
+###### Control Plane kubelet and kubectl
+
+```sh
 ➜ root@cluster3-controlplane1:~# apt update
 Hit:1 http://ppa.launchpad.net/rmescandon/yq/ubuntu focal InRelease
 Hit:3 http://us.archive.ubuntu.com/ubuntu bionic InRelease                 
@@ -3123,22 +3161,33 @@ kubectl set on hold.
 NAME                     STATUS                     ROLES           AGE   VERSION
 cluster3-controlplane1   Ready,SchedulingDisabled   control-plane   21d   v1.24.1
 cluster3-node1           Ready                      <none>          21d   v1.23.1
+```
+
 Done, and uncordon:
 
+```sh
 ➜ k uncordon cluster3-controlplane1
 node/cluster3-controlplane1 uncordoned
- 
+```
 
-Data Plane
+###### Data Plane
+
+```sh
 ➜ k get node
 NAME                     STATUS   ROLES           AGE   VERSION
 cluster3-controlplane1   Ready    control-plane   21d   v1.24.1
 cluster3-node1           Ready    <none>          21d   v1.23.1
+```
+
 Our data plane consist of one single worker node, so let's update it. First thing is we should drain it:
 
+```
 k drain cluster3-node1 --ignore-daemonsets
+```
+
 Next we ssh into it and upgrade kubeadm to the wanted version, or check if already done:
 
+```sh
 ➜ ssh cluster3-node1
 
 ➜ root@cluster3-node1:~# apt update
@@ -3184,8 +3233,11 @@ kubeadm set on hold.
 [kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
 [upgrade] The configuration for this node was successfully updated!
 [upgrade] Now you should go ahead and upgrade the kubelet package using your package manager.
+```
+
 Now we follow that kubeadm told us in the last line and upgrade kubelet (and kubectl):
 
+```sh
 ➜ root@cluster3-node1:~# apt-mark unhold kubectl kubelet
 Canceled hold on kubectl.
 Canceled hold on kubelet.
@@ -3218,14 +3270,21 @@ Setting up kubelet (1.24.1-00) ...
     Drop-In: /etc/systemd/system/kubelet.service.d
              └─10-kubeadm.conf
      Active: active (running) since Sun 2022-02-06 15:38:10 UTC; 3s ago
+     
+```
+
 Looking good, what does the node status say?
 
+```sh
 ➜ k get node
 NAME                     STATUS                     ROLES           AGE   VERSION
 cluster3-controlplane1   Ready                      control-plane   21d   v1.24.1
 cluster3-node1           Ready,SchedulingDisabled   <none>          21d   v1.24.1
+```
+
 Beautiful, let's make it schedulable again:
 
+```sh
 ➜ k uncordon cluster3-node1
 node/cluster3-node1 uncordoned
 
@@ -3233,16 +3292,16 @@ node/cluster3-node1 uncordoned
 NAME                     STATUS   ROLES           AGE   VERSION
 cluster3-controlplane1   Ready    control-plane   21d   v1.24.1
 cluster3-node1           Ready    <none>          21d   v1.24.1
+```
+
 We're up to date.
 
  
 
- 
-
 ## Question 21 | Image Vulnerability Scanning
-Task weight: 2%
 
- 
+#### Task weight: 2%
+
 
 (can be solved in any kubectl context)
 
@@ -3250,19 +3309,21 @@ Task weight: 2%
 
 The Vulnerability Scanner trivy is installed on your main terminal. Use it to scan the following images for known CVEs:
 
-nginx:1.16.1-alpine
-k8s.gcr.io/kube-apiserver:v1.18.0
-k8s.gcr.io/kube-controller-manager:v1.18.0
-docker.io/weaveworks/weave-kube:2.7.0
-Write all images that don't contain the vulnerabilities CVE-2020-10878 or CVE-2020-1967 into /opt/course/21/good-images.
+* nginx:1.16.1-alpine
+* k8s.gcr.io/kube-apiserver:v1.18.0
+* k8s.gcr.io/kube-controller-manager:v1.18.0
+* docker.io/weaveworks/weave-kube:2.7.0
+
+Write all images that don't contain the vulnerabilities `CVE-2020-10878` or `CVE-2020-1967` into `/opt/course/21/good-images`.
 
  
 
-Answer:
+#### Answer:
  
 
 The tool trivy is very simple to use, it compares images against public databases.
 
+```sh
 ➜ trivy nginx:1.16.1-alpine
 2020-10-09T20:59:39.198Z        INFO    Need to update DB
 2020-10-09T20:59:39.198Z        INFO    Downloading DB...
@@ -3278,8 +3339,11 @@ Total: 7 (UNKNOWN: 0, LOW: 0, MEDIUM: 7, HIGH: 0, CRITICAL: 0)
 +---------------+------------------+----------+-------------------
 | libcrypto1.1  | CVE-2020-1967    | MEDIUM   | 1.1.1d-r2         
 ... 
+```
+
 To solve the task we can run:
 
+```sh
 ➜ trivy nginx:1.16.1-alpine | grep -E 'CVE-2020-10878|CVE-2020-1967'
 | libcrypto1.1  | CVE-2020-1967    | MEDIUM   
 | libssl1.1     | CVE-2020-1967    |          
@@ -3292,38 +3356,44 @@ To solve the task we can run:
 
 ➜ trivy docker.io/weaveworks/weave-kube:2.7.0 | grep -E 'CVE-2020-10878|CVE-2020-1967'
 ➜
+```
+
 The only image without the any of the two CVEs is docker.io/weaveworks/weave-kube:2.7.0, hence our answer will be:
 
+```sh
 # /opt/course/21/good-images
 docker.io/weaveworks/weave-kube:2.7.0
+```
  
 
  
 
 ## Question 22 | Manual Static Security Analysis
-Task weight: 3%
+
+#### Task weight: 3%
 
  
 
 (can be solved in any kubectl context)
 
- 
 
-The Release Engineering Team has shared some YAML manifests and Dockerfiles with you to review. The files are located under /opt/course/22/files.
+
+The Release Engineering Team has shared some YAML manifests and Dockerfiles with you to review. The files are located under `/opt/course/22/files`.
 
 As a container security expert, you are asked to perform a manual static analysis and find out possible security issues with respect to unwanted credential exposure. Running processes as root is of no concern in this task.
 
-Write the filenames which have issues into /opt/course/22/security-issues.
+Write the filenames which have issues into `/opt/course/22/security-issues`.
+ 
+
+###### NOTE: In the Dockerfile and YAML manifests, assume that the referred files, folders, secrets and volume mounts are present. Disregard syntax or logic errors.
 
  
 
-NOTE: In the Dockerfile and YAML manifests, assume that the referred files, folders, secrets and volume mounts are present. Disregard syntax or logic errors.
+#### Answer:
 
- 
+We check location `/opt/course/22/files` and list the files.
 
-Answer:
-We check location /opt/course/22/files and list the files.
-
+```sh
 ➜ ls -la /opt/course/22/files
 total 48
 drwxr-xr-x 2 k8s k8s 4096 Sep 16 19:08 .
@@ -3338,11 +3408,12 @@ drwxr-xr-x 3 k8s k8s 4096 Sep 16 19:08 ..
 -rw-r--r-- 1 k8s k8s  188 Sep 16 19:08 pvc-manual.yaml
 -rw-r--r-- 1 k8s k8s  211 Sep 16 19:08 sc-local.yaml
 -rw-r--r-- 1 k8s k8s  902 Sep 16 19:08 statefulset-nginx.yaml
+```
+
 We have 3 Dockerfiles and 7 Kubernetes Resource YAML manifests. Next we should go over each to find security issues with the way credentials have been used.
 
- 
 
-NOTE: You should be comfortable with Docker Best Practices and the Kubernetes Configuration Best Practices.
+###### NOTE: You should be comfortable with Docker Best Practices and the Kubernetes Configuration Best Practices.
 
  
 
@@ -3350,8 +3421,9 @@ While navigating through the files we might notice:
 
  
 
-Number 1
-File Dockerfile-mysql might look innocent on first look. It copies a file secret-token over, uses it and deletes it afterwards. But because of the way Docker works, every RUN, COPY and ADD command creates a new layer and every layer is persistet in the image.
+##### Number 1
+
+File `Dockerfile-mysql` might look innocent on first look. It copies a file `secret-token` over, uses it and deletes it afterwards. But because of the way Docker works, every RUN, COPY and ADD command creates a new layer and every layer is persistet in the image.
 
 This means even if the file secret-token get's deleted in layer Z, it's still included with the image in layer X and Y. In this case it would be better to use for example variables passed to Docker.
 
