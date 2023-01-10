@@ -56,12 +56,12 @@
       - [Fast pod delete](#fast-pod-delete)
       - [Persist bash settings](#persist-bash-settings)
       - [Alias Namespace](#alias-namespace)
-    + [Be fast](#be-fast)
-    + [Vim](#vim-1)
-      - [toggle vim line numbers](#toggle-vim-line-numbers)
-      - [copy&paste](#copy-paste)
-      - [Indent multiple lines](#indent-multiple-lines)
-    + [Split terminal screen](#split-terminal-screen)
+   * [Be fast](#be-fast)
+   * [Vim](#vim-1)
+     + [toggle vim line numbers](#toggle-vim-line-numbers)
+     + [copy&paste](#copy-paste)
+     + [Indent multiple lines](#indent-multiple-lines)
+   * [Split terminal screen](#split-terminal-screen)
 
 # CKS Simulator Kubernetes 1.25
 https://killer.sh
