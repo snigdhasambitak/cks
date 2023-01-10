@@ -1246,10 +1246,9 @@ Some containers need to run more secure and restricted. There is an existing App
 * Add label s`ecurity=apparmor` to the Node
 
 * Create a Deployment named `apparmor` in Namespace `default` with:
-
-** One replica of image `nginx:1.19.2`
-** NodeSelector for `security=apparmor`
-** Single container named c1 with the AppArmor profile enabled
+ * One replica of image `nginx:1.19.2`
+ * NodeSelector for `security=apparmor`
+ * Single container named c1 with the AppArmor profile enabled
 
 The Pod might not run properly with the profile enabled. Write the logs of the Pod into /opt/course/9/logs so another team can work on getting the application running.
 
