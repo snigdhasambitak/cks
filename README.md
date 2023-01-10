@@ -4168,159 +4168,181 @@ https://aquasecurity.github.io/trivy
 https://falco.org/docs
 https://gitlab.com/apparmor/apparmor/-/wikis/Documentation
 
-###### NOTE: Verify the list (here)[https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks#cks]
+###### NOTE: Verify the list [here](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks#cks)
 
  
 
-CKS clusters
+# CKS clusters
+
 In the CKS exam you'll get access to as many clusters as you have questions, each will be solved in its own cluster. This is great because you cannot interfere with other tasks by breaking one. Every cluster will have one master and one worker node.
 
  
 
-The Test Environment / Browser Terminal
+# The Test Environment / Browser Terminal
+
 You'll be provided with a browser terminal which uses Ubuntu 20. The standard shells included with a minimal install of Ubuntu 20 will be available, including bash.
 
-Laggin
+## Laggin
 
 There could be some lagging, definitely make sure you are using a good internet connection because your webcam and screen are uploading all the time.
 
-Kubectl autocompletion and commands
+## Kubectl autocompletion and commands
 
-Autocompletion is configured by default, as well as the k alias source and others:
+Autocompletion is configured by default, as well as the `k` alias [source](https://docs.linuxfoundation.org/tc-docs/certification/tips-cka-and-ckad) and others:
 
-kubectl with k alias and Bash autocompletion
+`kubectl` with `k` alias and Bash autocompletion
 
-yq and jqfor YAML/JSON processing
+`yq` and `jq` for YAML/JSON processing
 
-tmux for terminal multiplexing
+`tmux` for terminal multiplexing
 
-curl and wget for testing web services
+`curl` and `wget` for testing web services
 
-man and man pages for further documentation
+`man` and man pages for further documentation
 
-Copy & Paste
+## Copy & Paste
 
-There could be issues copying text (like pod names) from the left task information into the terminal. Some suggested to "hard" hit or long hold Cmd/Ctrl+C a few times to take action. Apart from that copy and paste should just work like in normal terminals.
+There could be issues copying text (like pod names) from the left task information into the terminal. Some suggested to "hard" hit or long hold `Cmd/Ctrl+C` a few times to take action. Apart from that copy and paste should just work like in normal terminals.
 
-Percentages and Score
+## Percentages and Score
 
 There are 15-20 questions in the exam and 100% of total percentage to reach. Each questions shows the % it gives if you solve it. Your results will be automatically checked according to the handbook. If you don't agree with the results you can request a review by contacting the Linux Foundation support.
 
-Notepad & Skipping Questions
+## Notepad & Skipping Questions
 
 You have access to a simple notepad in the browser which can be used for storing any kind of plain text. It makes sense to use this for saving skipped question numbers and their percentages. This way it's possible to move some questions to the end. It might make sense to skip 2% or 3% questions and go directly to higher ones.
 
-Contexts
+## Contexts
 
 You'll receive access to various different clusters and resources in each. They provide you the exact command you need to run to connect to another cluster/context. But you should be comfortable working in different namespaces with kubectl.
 
  
 
-PSI Bridge
-Starting with PSI Bridge:
+# PSI Bridge
 
-The exam will now be taken using the PSI Secure Browser, which can be downloaded using the newest versions of Microsoft Edge, Safari, Chrome, or Firefox
-Multiple monitors will no longer be permitted
-Use of personal bookmarks will no longer be permitted
+Starting with [PSI Bridge](https://training.linuxfoundation.org/bridge-migration-2021):
+
+* The exam will now be taken using the PSI Secure Browser, which can be downloaded using the newest versions of Microsoft Edge, Safari, Chrome, or Firefox
+* Multiple monitors will no longer be permitted
+* Use of personal bookmarks will no longer be permitted
+
 The new ExamUI includes improved features such as:
 
-A remote desktop configured with the tools and software needed to complete the tasks
-A timer that displays the actual time remaining (in minutes) and provides an alert with 30, 15, or 5 minute remaining
-The content panel remains the same (presented on the Left Hand Side of the ExamUI)
-Read more here.
+* A remote desktop configured with the tools and software needed to complete the tasks
+* A timer that displays the actual time remaining (in minutes) and provides an alert with 30, 15, or 5 minute remaining
+* The content panel remains the same (presented on the Left Hand Side of the ExamUI)
+
+Read more [here](https://training.linuxfoundation.org/bridge-migration-2021).
 
  
 
-Browser Terminal Setup
+# Browser Terminal Setup
 It should be considered to spend ~1 minute in the beginning to setup your terminal. In the real exam the vast majority of questions will be done from the main terminal. For few you might need to ssh into another machine. Just be aware that configurations to your shell will not be transferred in this case.
 
-Minimal Setup
-Alias
+## Minimal Setup
 
-The alias k for kubectl will already be configured together with autocompletion. In case not you can configure it using this link.
+### Alias
 
-Vim
+The alias `k` for `kubectl` will already be configured together with autocompletion. In case not you can configure it using this link.
+
+### Vim
 
 The following settings will already be configured in your real exam environment in ~/.vimrc. But it can never hurt to be able to type these down:
 
+```sh
 set tabstop=2
 set expandtab
 set shiftwidth=2
-The expandtab make sure to use spaces for tabs. Memorize these and just type them down. You can't have any written notes with commands on your desktop etc.
+```
 
-Optional Setup
-Fast dry-run output
+The `expandtab` make sure to use spaces for tabs. Memorize these and just type them down. You can't have any written notes with commands on your desktop etc.
 
+### Optional Setup
+
+#### Fast dry-run output
+
+```sh
 export do="--dry-run=client -o yaml"
-This way you can just run k run pod1 --image=nginx $do. Short for "dry output", but use whatever name you like.
+```
 
-Fast pod delete
+This way you can just run `k run pod1 --image=nginx $do`. Short for "dry output", but use whatever name you like.
 
+#### Fast pod delete
+
+```sh
 export now="--force --grace-period 0"
+```
+
 This way you can run k delete pod1 $now and don't have to wait for ~30 seconds termination time.
 
-Persist bash settings
+#### Persist bash settings
 
 You can store aliases and other setup in ~/.bashrc if you're planning on using different shells or tmux.
 
-Alias Namespace
+#### Alias Namespace
 
 In addition you could define an alias like:
 
+```sh
 alias kn='kubectl config set-context --current --namespace '
+```
+
 Which allows you to define the default namespace of the current context. Then once you switch a context or namespace you can just run:
 
+```sh
 kn default        # set default to default
 kn my-namespace   # set default to my-namespace
+```
+
 But only do this if you used it before and are comfortable doing so. Else you need to specify the namespace for every call, which is also fine:
 
+```sh
 k -n my-namespace get all
 k -n my-namespace get pod
 ...
- 
+```
 
-Be fast
-Use the history command to reuse already entered commands or use even faster history search through Ctrl r .
+### Be fast
+Use the `history` command to reuse already entered commands or use even faster history search through **Ctrl r **.
 
-If a command takes some time to execute, like sometimes kubectl delete pod x. You can put a task in the background using Ctrl z and pull it back into foreground running command fg.
+If a command takes some time to execute, like sometimes `kubectl delete pod x`. You can put a task in the background using **Ctrl z** and pull it back into foreground running command `fg`.
 
 You can delete pods fast with:
 
+```sh
 k delete pod x --grace-period 0 --force
 
 k delete pod x $now # if export from above is configured
- 
+```
 
-Vim
+
+### Vim
+
 Be great with vim.
 
-toggle vim line numbers
+#### toggle vim line numbers
 
-When in vim you can press Esc and type :set number or :set nonumber followed by Enter to toggle line numbers. This can be useful when finding syntax errors based on line - but can be bad when wanting to mark&copy by mouse. You can also just jump to a line number with Esc :22 + Enter.
+When in `vim` you can press **Esc** and type `:set number` or `:set nonumber` followed by **Enter** to toggle line numbers. This can be useful when finding syntax errors based on line - but can be bad when wanting to mark&copy by mouse. You can also just jump to a line number with **Esc** `:22` + **Enter**.
 
-copy&paste
+#### copy&paste
 
 Get used to copy/paste/cut with vim:
 
+```sh
 Mark lines: Esc+V (then arrow keys)
 Copy marked lines: y
 Cut marked lines: d
 Past lines: p or P
-Indent multiple lines
+```
 
-To indent multiple lines press Esc and type :set shiftwidth=2. First mark multiple lines using Shift v and the up/down keys. Then to indent the marked lines press > or <. You can then press . to repeat the action.
+#### Indent multiple lines
 
- 
+To indent multiple lines press **Esc** and type `:set shiftwidth=2`. First mark multiple lines using `Shift v` and the up/down keys. Then to indent the marked lines press `>` or `<`. You can then press . to repeat the action.
 
-Split terminal screen
+
+
+### Split terminal screen
 By default tmux is installed and can be used to split your one terminal into multiple. But just do this if you know your shit, because scrolling is different and copy&pasting might be weird.
 
 https://www.hamvocke.com/blog/a-quick-and-easy-guide-to-tmux
 
-wuestkamp.com
-design
-faq
-
-store
-support
-legal / privacy
