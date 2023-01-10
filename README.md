@@ -1560,19 +1560,20 @@ k -n team-purple exec gvisor-test > /opt/course/10/gvisor-test-dmesg -- dmesg
 
 Use context: `kubectl config use-context workload-prod`
 
+
+There is an existing Secret called `database-access` in Namespace `team-green`.
+
+Read the complete Secret content directly from ETCD (using `etcdctl`) and store it into `/opt/course/11/etcd-secret-content`. Write the plain and decoded Secret's value of key "pass" into `/opt/course/11/database-password`.
+
  
 
-There is an existing Secret called database-access in Namespace team-green.
+#### Answer:
 
-Read the complete Secret content directly from ETCD (using etcdctl) and store it into /opt/course/11/etcd-secret-content. Write the plain and decoded Secret's value of key "pass" into /opt/course/11/database-password.
-
- 
-
-Answer:
 Let's try to get the Secret value directly from ETCD, which will work since it isn't encrypted.
 
 First, we ssh into the master node where ETCD is running in this setup and check if etcdctl is installed and list its options:
 
+```sh
 ➜ ssh cluster1-controlplane1
 
 ➜ root@cluster1-controlplane1:~# etcdctl
@@ -1590,25 +1591,38 @@ USAGE:
    --key-file value    identify HTTPS client using this SSL key file
    --ca-file value     verify certificates of HTTPS-enabled servers using this CA bundle
 ...
+```
+
 Among others we see arguments to identify ourselves. The apiserver connects to ETCD, so we can run the following command to get the path of the necessary .crt and .key files:
 
+```sh
 cat /etc/kubernetes/manifests/kube-apiserver.yaml | grep etcd
+```
+
 The output is as follows :
 
+```yaml
     - --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt
     - --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt
     - --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key
     - --etcd-servers=https://127.0.0.1:2379 # optional since we're on same node
+```
+
 With this information we query ETCD for the secret value:
+
+```sh
 
 ➜ root@cluster1-controlplane1:~# ETCDCTL_API=3 etcdctl \
 --cert /etc/kubernetes/pki/apiserver-etcd-client.crt \
 --key /etc/kubernetes/pki/apiserver-etcd-client.key \
 --cacert /etc/kubernetes/pki/etcd/ca.crt get /registry/secrets/team-green/database-access
-ETCD in Kubernetes stores data under /registry/{type}/{namespace}/{name}. This is how we came to look for /registry/secrets/team-green/database-access. There is also an example on a page in the k8s documentation which you could save as a bookmark to access fast during the exam.
+```
+
+ETCD in Kubernetes stores data under `/registry/{type}/{namespace}/{name}`. This is how we came to look for `/registry/secrets/team-green/database-access`. There is also an example on a page in the k8s documentation which you could save as a bookmark to access fast during the exam.
 
 The tasks requires us to store the output on our terminal. For this we can simply copy&paste the content into a new file on our terminal:
 
+```yaml
 # /opt/course/11/etcd-secret-content
 /registry/secrets/team-green/database-access
 k8s
@@ -1624,41 +1638,51 @@ kubectl-client-side-applyUpdatevFieldsV1:
 {"f:data":{".":{},"f:pass":{}},"f:metadata":{"f:annotations":{".":{},"f:kubectl.kubernetes.io/last-applied-configuration":{}}},"f:type":{}}
 pass
     confidentialOpaque"
+    
+```
+
 We're also required to store the plain and "decrypted" database password. For this we can copy the base64-encoded value from the ETCD output and run on our terminal:
 
+```sh
 ➜ echo Y29uZmlkZW50aWFs | base64 -d > /opt/course/11/database-password
 
 ➜ cat /opt/course/11/database-password
 confidential
- 
+ ```
 
  
 
 ## Question 12 | Hack Secrets
-Task weight: 8%
+
+#### Task weight: 8%
 
  
 
-Use context: kubectl config use-context restricted@infra-prod
+Use context: `kubectl config use-context restricted@infra-prod`
 
  
 
-You're asked to investigate a possible permission escape in Namespace restricted. The context authenticates as user restricted which has only limited permissions and shouldn't be able to read Secret values.
+You're asked to investigate a possible permission escape in Namespace `restricted`. The context authenticates as user `restricted` which has only limited permissions and shouldn't be able to read Secret values.
 
-Try to find the password-key values of the Secrets secret1, secret2 and secret3 in Namespace restricted. Write the decoded plaintext values into files /opt/course/12/secret1, /opt/course/12/secret2 and /opt/course/12/secret3.
+Try to find the password-key values of the Secrets `secret1`, `secret2` and `secret3` in Namespace `restricted`. Write the decoded plaintext values into files `/opt/course/12/secret1`, `/opt/course/12/secret2` and `/opt/course/12/secret3`.
 
  
 
-Answer:
+#### Answer:
+
 First we should explore the boundaries, we can try:
 
+```sh
 ➜ k -n restricted get role,rolebinding,clusterrole,clusterrolebinding
 Error from server (Forbidden): roles.rbac.authorization.k8s.io is forbidden: User "restricted" cannot list resource "roles" in API group "rbac.authorization.k8s.io" in the namespace "restricted"
 Error from server (Forbidden): rolebindings.rbac.authorization.k8s.io is forbidden: User "restricted" cannot list resource "rolebindings" in API group "rbac.authorization.k8s.io" in the namespace "restricted"
 Error from server (Forbidden): clusterroles.rbac.authorization.k8s.io is forbidden: User "restricted" cannot list resource "clusterroles" in API group "rbac.authorization.k8s.io" at the cluster scope
 Error from server (Forbidden): clusterrolebindings.rbac.authorization.k8s.io is forbidden: User "restricted" cannot list resource "clusterrolebindings" in API group "rbac.authorization.k8s.io" at the cluster scope
+```
+
 But no permissions to view RBAC resources. So we try the obvious:
 
+```sh
 ➜ k -n restricted get secret
 Error from server (Forbidden): secrets is forbidden: User "restricted" cannot list resource "secrets" in API group "" in the namespace "restricted"
 
@@ -1670,8 +1694,11 @@ metadata:
   resourceVersion: ""
   selfLink: ""
 Error from server (Forbidden): secrets is forbidden: User "restricted" cannot list resource "secrets" in API group "" in the namespace "restricted"
+```
+
 We're not allowed to get or list any Secrets. What can we see though?
 
+```sh
 ➜ k -n restricted get all
 NAME                    READY   STATUS    RESTARTS   AGE
 pod1-fd5d64b9c-pcx6q    1/1     Running   0          37s
@@ -1680,32 +1707,47 @@ pod3-748b48594-24s76    1/1     Running   0          37s
 Error from server (Forbidden): replicationcontrollers is forbidden: User "restricted" cannot list resource "replicationcontrollers" in API group "" in the namespace "restricted"
 Error from server (Forbidden): services is forbidden: User "restricted" cannot list resource "services" in API group "" in the namespace "restricted"
 ...
+```
+
 There are some Pods, lets check these out regarding Secret access:
 
+```sh
 k -n restricted get pod -o yaml | grep -i secret
+```
+
 This output provides us with enough information to do:
 
+```sh
 ➜ k -n restricted exec pod1-fd5d64b9c-pcx6q -- cat /etc/secret-volume/password
 you-are
 
 ➜ echo you-are > /opt/course/12/secret1
+```
+
 And for the second Secret:
 
+```sh
 ➜ k -n restricted exec pod2-6494f7699b-4hks5 -- env | grep PASS
 PASSWORD=an-amazing
 
 ➜ echo an-amazing > /opt/course/12/secret2
+```
+
 None of the Pods seem to mount secret3 though. Can we create or edit existing Pods to mount secret3?
 
+```sh
 ➜ k -n restricted run test --image=nginx
 Error from server (Forbidden): pods is forbidden: User "restricted" cannot create resource "pods" in API group "" in the namespace "restricted"
 
 ➜ k -n restricted delete pod pod1
 Error from server (Forbidden): pods "pod1" is forbidden: User "restricted" cannot delete resource "pods" in API group "" in the namespace "restricted"
+```
+
 Doesn't look like it.
 
-But the Pods seem to be able to access the Secrets, we can try to use a Pod's ServiceAccount to access the third Secret. We can actually see (like using k -n restricted get pod -o yaml | grep automountServiceAccountToken) that only Pod pod3-* has the ServiceAccount token mounted:
+But the Pods seem to be able to access the Secrets, we can try to use a Pod's ServiceAccount to access the third Secret. We can actually see (like using `k -n restricted get pod -o yaml | grep automountServiceAccountToken`) that only Pod `pod3-*` has the `ServiceAccount` token mounted:
 
+```sh
 ➜ k -n restricted exec -it pod3-748b48594-24s76 -- sh
 
 / # mount | grep serviceaccount
@@ -1713,14 +1755,15 @@ tmpfs on /run/secrets/kubernetes.io/serviceaccount type tmpfs (ro,relatime)
 
 / # ls /run/secrets/kubernetes.io/serviceaccount
 ca.crt     namespace  token
- 
+```
 
-NOTE: You should have knowledge about ServiceAccounts and how they work with Pods like described in the docs
 
- 
+###### NOTE: You should have knowledge about ServiceAccounts and how they work with Pods like described in the docs
+
 
 We can see all necessary information to contact the apiserver manually:
 
+```json
 / # curl https://kubernetes.default/api/v1/namespaces/restricted/secrets -H "Authorization: Bearer $(cat /run/secrets/kubernetes.io/serviceaccount/token)" -k
 ...
     {
@@ -1737,32 +1780,45 @@ We can see all necessary information to contact the apiserver manually:
       "type": "Opaque"
     }
 ...
+```
+
 Let's encode it and write it into the requested location:
 
+```sh
 ➜ echo cEVuRXRSYVRpT24tdEVzVGVSCg== | base64 -d
 pEnEtRaTiOn-tEsTeR
 
 ➜ echo cEVuRXRSYVRpT24tdEVzVGVSCg== | base64 -d > /opt/course/12/secret3
-This will give us:
+```
 
+This will give us:
+```yaml
 # /opt/course/12/secret1
 you-are
+```
+
+```yaml
 # /opt/course/12/secret2
 an-amazing
+```
+
+```yaml
 # /opt/course/12/secret3
 pEnEtRaTiOn-tEsTeR
+```
+
 We hacked all Secrets! It can be tricky to get RBAC right and secure.
 
- 
 
-NOTE: One thing to consider is that giving the permission to "list" Secrets, will also allow the user to read the Secret values like using kubectl get secrets -o yaml even without the "get" permission set.
+###### NOTE: One thing to consider is that giving the permission to "list" Secrets, will also allow the user to read the Secret values like using kubectl get secrets -o yaml even without the "get" permission set.
 
  
 
  
 
 ## Question 13 | Restrict access to Metadata Server
-Task weight: 7%
+
+#### Task weight: 7%
 
  
 
