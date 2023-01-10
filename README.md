@@ -3425,8 +3425,9 @@ While navigating through the files we might notice:
 
 File `Dockerfile-mysql` might look innocent on first look. It copies a file `secret-token` over, uses it and deletes it afterwards. But because of the way Docker works, every RUN, COPY and ADD command creates a new layer and every layer is persistet in the image.
 
-This means even if the file secret-token get's deleted in layer Z, it's still included with the image in layer X and Y. In this case it would be better to use for example variables passed to Docker.
+This means even if the file `secret-token` get's deleted in layer Z, it's still included with the image in layer X and Y. In this case it would be better to use for example variables passed to Docker.
 
+```yaml
 # /opt/course/22/files/Dockerfile-mysql
 FROM ubuntu
 
@@ -3448,14 +3449,20 @@ RUN rm ./secret-token # delete secret token again         # LATER Z
 
 EXPOSE 3306
 CMD ["/run.sh"]
+```
+
 So we do:
 
+```sh
 echo Dockerfile-mysql >> /opt/course/22/security-issues
+```
  
 
-Number 2
-The file deployment-redis.yaml is fetching credentials from a Secret named mysecret and writes these into environment variables. So far so good, but in the command of the container it's echoing these which can be directly read by any user having access to the logs.
+###### Number 2
 
+The file `deployment-redis.yaml` is fetching credentials from a Secret named `mysecret` and writes these into environment variables. So far so good, but in the command of the container it's echoing these which can be directly read by any user having access to the logs.
+
+```yaml
 # /opt/course/22/files/deployment-redis.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -3491,14 +3498,19 @@ spec:
             secretKeyRef:
               name: mysecret
               key: password
+```
+
 Credentials in logs is never a good idea, hence we do:
 
+```sh
 echo deployment-redis.yaml >> /opt/course/22/security-issues
- 
+``` 
 
-Number 3
-In file statefulset-nginx.yaml, the password is directly exposed in the environment variable definition of the container.
+###### Number 3
 
+In file `statefulset-nginx.yaml`, the password is directly exposed in the environment variable definition of the container.
+
+```yaml
 # /opt/course/22/files/statefulset-nginx.yaml
 ...
 apiVersion: apps/v1
@@ -3528,16 +3540,24 @@ spec:
         - containerPort: 80
           name: web
 ..
+```
+
 This should better be injected via a Secret. So we do:
 
+```sh
 echo statefulset-nginx.yaml >> /opt/course/22/security-issues
+```
+
+```sh
 ➜ cat /opt/course/22/security-issues
 Dockerfile-mysql
 deployment-redis.yaml
 statefulset-nginx.yaml
+```
  
 
-CKS Simulator Preview Kubernetes 1.25
+# CKS Simulator Preview Kubernetes 1.25
+
 https://killer.sh
 
 This is a preview of the full CKS Simulator course content.
@@ -3548,35 +3568,46 @@ The following preview will give you an idea of what the full course will provide
 
 The answers provided here assume that you did run the initial terminal setup suggestions as provided in the tips section, but especially:
 
+```sh
 alias k=kubectl
 
 export do="-o yaml --dry-run=client"
+```
  
 
 These questions can be solved in the test environment provided through the CKS Simulator
  
 
 ## Preview Question 1
-Use context: kubectl config use-context infra-prod
+
+Use context: `kubectl config use-context infra-prod`
 
  
 
-You have admin access to cluster2. There is also context gianna@infra-prod which authenticates as user gianna with the same cluster.
+You have admin access to cluster2. There is also context `gianna@infra-prod` which authenticates as user `gianna` with the same cluster.
 
-There are existing cluster-level RBAC resources in place to, among other things, ensure that user gianna can never read Secret contents cluster-wide. Confirm this is correct or restrict the existing RBAC resources to ensure this.
+There are existing cluster-level RBAC resources in place to, among other things, ensure that user `gianna` can never read Secret contents cluster-wide. Confirm this is correct or restrict the existing RBAC resources to ensure this.
 
-I addition, create more RBAC resources to allow user gianna to create Pods and Deployments in Namespaces security, restricted and internal. It's likely the user will receive these exact permissions as well for other Namespaces in the future.
+I addition, create more RBAC resources to allow user `gianna` to create Pods and Deployments in Namespaces `security`, `restricted` and `internal`. It's likely the user will receive these exact permissions as well for other Namespaces in the future.
 
  
 
-Answer:
-Part 1 - check existing RBAC rules
+#### Answer:
+
+##### Part 1 - check existing RBAC rules
+
 We should probably first have a look at the existing RBAC resources for user gianna. We don't know the resource names but we know these are cluster-level so we can search for a ClusterRoleBinding:
 
+```sh
 k get clusterrolebinding -oyaml | grep gianna -A10 -B20
+```
+
 From this we see the binding is also called gianna:
 
+```sh
 k edit clusterrolebinding gianna
+```
+```yaml
 # kubectl edit clusterrolebinding gianna
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -3594,9 +3625,14 @@ subjects:
 - apiGroup: rbac.authorization.k8s.io
   kind: User
   name: gianna
-It links user gianna to same named ClusterRole:
+```
 
+It links user `gianna` to same named ClusterRole:
+
+```sh
 k edit clusterrole gianna
+```
+```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -3615,15 +3651,21 @@ rules:
   - namespaces
   verbs:
   - list
+```
+
 According to the task the user should never be able to read Secrets content. They verb list might indicate on first look that this is correct. We can also check using K8s User Impersonation:
 
+```sh
 ➜ k auth can-i list secrets --as gianna
 yes
 
 ➜ k auth can-i get secrets --as gianna
 no
+```
+
 But let's have a closer look:
 
+```sh
 ➜ k config use-context gianna@infra-prod
 Switched to context "gianna@infra-prod".
 
@@ -3638,19 +3680,27 @@ vault-token           Opaque                                1      20m
 
 ➜ k -n security get secret kubeadmin-token
 Error from server (Forbidden): secrets "kubeadmin-token" is forbidden: User "gianna" cannot get resource "secrets" in API group "" in the namespace "security"
+```
+
 Still all expected, but being able to list resources also allows to specify the format:
 
+```sh
 ➜ k -n security get secrets -oyaml | grep password
     password: ekhHYW5lQUVTaVVxCg==
         {"apiVersion":"v1","data":{"password":"ekhHYW5lQUVTaVVxCg=="},"kind":"Secret","metadata":{"annotations":{},"name":"kubeadmin-token","namespace":"security"},"type":"Opaque"}
           f:password: {}
     password: bWdFVlBSdEpEWHBFCg==
 ...
-The user gianna is actually able to read Secret content. To prevent this we should remove the ability to list these:
+```
 
+The user `gianna` is actually able to read Secret content. To prevent this we should remove the ability to list these:
+
+```sh
 k config use-context infra-prod # back to admin context
 
 k edit clusterrole gianna
+```
+```yaml
 # kubectl edit clusterrole gianna
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -3670,9 +3720,10 @@ rules:
   - namespaces
   verbs:
   - list
- 
+```
 
-Part 2 - create additional RBAC rules
+##### Part 2 - create additional RBAC rules
+
 Let's talk a little about RBAC resources:
 
 A ClusterRole|Role defines a set of permissions and where it is available, in the whole cluster or just a single Namespace.
@@ -3681,17 +3732,21 @@ A ClusterRoleBinding|RoleBinding connects a set of permissions with an account a
 
 Because of this there are 4 different RBAC combinations and 3 valid ones:
 
-Role + RoleBinding (available in single Namespace, applied in single Namespace)
-ClusterRole + ClusterRoleBinding (available cluster-wide, applied cluster-wide)
-ClusterRole + RoleBinding (available cluster-wide, applied in single Namespace)
-Role + ClusterRoleBinding (NOT POSSIBLE: available in single Namespace, applied cluster-wide)
+* Role + RoleBinding (available in single Namespace, applied in single Namespace)
+* ClusterRole + ClusterRoleBinding (available cluster-wide, applied cluster-wide)
+* ClusterRole + RoleBinding (available cluster-wide, applied in single Namespace)
+* Role + ClusterRoleBinding (NOT POSSIBLE: available in single Namespace, applied cluster-wide)
  
 
-The user gianna should be able to create Pods and Deployments in three Namespaces. We can use number 1 or 3 from the list above. But because the task says: "The user might receive these exact permissions as well for other Namespaces in the future", we choose number 3 as it requires to only create one ClusterRole instead of three Roles.
+The user `gianna` should be able to create Pods and Deployments in three Namespaces. We can use number 1 or 3 from the list above. But because the task says: "The user might receive these exact permissions as well for other Namespaces in the future", we choose number 3 as it requires to only create one ClusterRole instead of three Roles.
 
+```sh
 k create clusterrole gianna-additional --verb=create --resource=pods --resource=deployments
+```
+
 This will create a ClusterRole like:
 
+```yaml
 # kubectl create clusterrole gianna-additional --verb=create --resource=pods --resource=deployments
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -3711,8 +3766,11 @@ rules:
   - deployments
   verbs:
   - create
+```
+
 Next the three bindings:
 
+```sh
 k -n security create rolebinding gianna-additional \
 --clusterrole=gianna-additional --user=gianna
 
@@ -3721,8 +3779,11 @@ k -n restricted create rolebinding gianna-additional \
 
 k -n internal create rolebinding gianna-additional \
 --clusterrole=gianna-additional --user=gianna
+```
+
 Which will create RoleBindings like:
 
+```yaml
 # k -n security create rolebinding gianna-additional --clusterrole=gianna-additional --user=gianna
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -3739,7 +3800,9 @@ subjects:
   kind: User
   name: gianna
 And we test:
+```
 
+```sh
 ➜ k -n default auth can-i create pods --as gianna
 no
 
@@ -3751,6 +3814,8 @@ yes
 
 ➜ k -n internal auth can-i create pods --as gianna
 yes
+```
+
 Feel free to verify this as well by actually creating Pods and Deployments as user gianna through context gianna@infra-prod.
 
  
@@ -3758,19 +3823,21 @@ Feel free to verify this as well by actually creating Pods and Deployments as us
  
 
 ## Preview Question 2
-Use context: kubectl config use-context infra-prod
+Use context: `kubectl config use-context infra-prod`
 
  
 
-There is an existing Open Policy Agent + Gatekeeper policy to enforce that all Namespaces need to have label security-level set. Extend the policy constraint and template so that all Namespaces also need to set label management-team. Any new Namespace creation without these two labels should be prevented.
+There is an existing Open Policy Agent + Gatekeeper policy to enforce that all Namespaces need to have label `security-level` set. Extend the policy constraint and template so that all Namespaces also need to set label `management-team`. Any new Namespace creation without these two labels should be prevented.
 
-Write the names of all existing Namespaces which violate the updated policy into /opt/course/p2/fix-namespaces.
+Write the names of all existing Namespaces which violate the updated policy into `/opt/course/p2/fix-namespaces`.
 
  
 
-Answer:
+#### Answer:
+
 We look at existing OPA constraints, these are implemeted using CRDs by Gatekeeper:
 
+```sh
 ➜ k get crd
 NAME                                                 CREATED AT
 blacklistimages.constraints.gatekeeper.sh            2020-09-14T19:29:31Z
@@ -3779,16 +3846,22 @@ constraintpodstatuses.status.gatekeeper.sh           2020-09-14T19:29:05Z
 constrainttemplatepodstatuses.status.gatekeeper.sh   2020-09-14T19:29:05Z
 constrainttemplates.templates.gatekeeper.sh          2020-09-14T19:29:05Z
 requiredlabels.constraints.gatekeeper.sh             2020-09-14T19:29:31Z
+```
+
 So we can do:
 
+```sh
 ➜ k get constraint
 NAME                                                           AGE
 blacklistimages.constraints.gatekeeper.sh/pod-trusted-images   10m
 
 NAME                                                                  AGE
 requiredlabels.constraints.gatekeeper.sh/namespace-mandatory-labels   10m
+```
+
 And check violations for the namespace-mandatory-label one, which we can do in the resource status:
 
+```sh
 ➜ k describe requiredlabels namespace-mandatory-labels
 Name:         namespace-mandatory-labels
 Namespace:    
@@ -3805,9 +3878,12 @@ Status:
     Kind:                Namespace
     Message:             you must provide labels: {"security-level"}
     Name:                sidecar-injector
-Events:                  
+Events:  
+```
+
 We see one violation for Namespace "sidecar-injector". Let's get an overview over all Namespaces:
 
+```sh
 ➜ k get ns --show-labels
 NAME                STATUS   AGE   LABELS
 default             Active   21m   management-team=green,security-level=high
@@ -3819,13 +3895,21 @@ kube-system         Active   21m   management-team=green,security-level=high
 restricted          Active   14m   management-team=blue,security-level=medium
 security            Active   14m   management-team=blue,security-level=medium
 sidecar-injector    Active   14m   <none>
-When we try to create a Namespace without the required label we get an OPA error:
+```
 
+When we try to create a Namespace without the required label we get an OPA error:
+```sh
 ➜ k create ns test
 Error from server ([denied by namespace-mandatory-labels] you must provide labels: {"security-level"}): error when creating "ns.yaml": admission webhook "validation.gatekeeper.sh" denied the request: [denied by namespace-mandatory-labels] you must provide labels: {"security-level"}
+```
+
 Next we edit the constraint to add another required label:
 
+```sh
 k edit requiredlabels namespace-mandatory-labels
+```
+
+```yaml
 # kubectl edit requiredlabels namespace-mandatory-labels
 apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: RequiredLabels
@@ -3850,8 +3934,11 @@ spec:
     labels:
     - security-level
     - management-team # add
+```
+
 As we can see the constraint is using kind: RequiredLabels as template, which is a CRD created by Gatekeeper. Let's apply the change and see what happens (give OPA a minute to apply the changes internally):
 
+```sh
 ➜ k describe requiredlabels namespace-mandatory-labels
 ...
   Violations:
@@ -3859,8 +3946,11 @@ As we can see the constraint is using kind: RequiredLabels as template, which is
     Kind:                Namespace
     Message:             you must provide labels: {"management-team"}
     Name:                jeffs-playground
-After the changes we can see that now another Namespace jeffs-playground is in trouble. Because that one only specifies one required label. But what about the earlier violation of Namespace sidecar-injector?
+```
 
+After the changes we can see that now another Namespace `jeffs-playground` is in trouble. Because that one only specifies one required label. But what about the earlier violation of Namespace `sidecar-injector`?
+
+```sh
 ➜ k get ns --show-labels
 NAME                STATUS   AGE   LABELS
 default             Active   21m   management-team=green,security-level=high
@@ -3872,16 +3962,22 @@ kube-system         Active   21m   management-team=green,security-level=high
 restricted          Active   17m   management-team=blue,security-level=medium
 security            Active   17m   management-team=blue,security-level=medium
 sidecar-injector    Active   17m   <none>
-Namespace sidecar-injector should also be in trouble, but it isn't any longer. This doesn't seem right, it means we could still create Namespaces without any labels just like using k create ns test.
+```
+
+Namespace `sidecar-injector` should also be in trouble, but it isn't any longer. This doesn't seem right, it means we could still create Namespaces without any labels just like using `k create ns test`.
 
 So we check the template:
 
+```sh
 ➜ k get constrainttemplates
 NAME              AGE
 blacklistimages   20m
 requiredlabels    20m
 
 ➜ k edit constrainttemplates requiredlabels
+```
+
+```yaml
 # kubectl edit constrainttemplates requiredlabels
 apiVersion: templates.gatekeeper.sh/v1beta1
 kind: ConstraintTemplate
@@ -3910,10 +4006,13 @@ spec:
         msg := sprintf("you must provide labels: %v", [missing])
       }
     target: admission.k8s.gatekeeper.sh
+```
+
 In the rego script we need to change count(missing) == 1 to count(missing) > 0 . If we don't do this then the policy only complains if there is one missing label, but there can be multiple missing ones.
 
 After waiting a bit we check the constraint again:
 
+```sh
 ➜ k describe requiredlabels namespace-mandatory-labels
 ...
   Total Violations:  2
@@ -3927,114 +4026,139 @@ After waiting a bit we check the constraint again:
     Message:             you must provide labels: {"security-level", "management-team"}
     Name:                sidecar-injector
 Events:                  <none>
+```
+
 This looks better. Finally we write the Namespace names with violations into the required location:
 
+```sh
 # /opt/course/p2/fix-namespaces
 sidecar-injector
 jeffs-playground
- 
-
+```
  
 
 ## Preview Question 3
   
-Use context: kubectl config use-context workload-stage
+Use context: `kubectl config use-context workload-stage`
 
- 
 
 A security scan result shows that there is an unknown miner process running on one of the Nodes in cluster3. The report states that the process is listening on port 6666. Kill the process and delete the binary.
 
  
 
-Answer:
+#### Answer:
+
 We have a look at existing Nodes:
 
+```sh
 ➜ k get node
 NAME                     STATUS   ROLES           AGE    VERSION
 cluster3-controlplane1   Ready    control-plane   109m   v1.24.7
 cluster3-node1           Ready    <none>          105m   v1.24.7
+```
+
 First we check the master:
 
+```sh
 ➜ ssh cluster3-controlplane1
 
 ➜ root@cluster3-controlplane1:~# netstat -plnt | grep 6666
 
 ➜ root@cluster3-controlplane1:~# 
+```
+
 Doesn't look like any process listening on this port. So we check the worker:
 
+```sh
 ➜ ssh cluster3-node1
 
 ➜ root@cluster3-node1:~# netstat -plnt | grep 6666
-tcp6       0      0 :::6666                 :::*        LISTEN      9591/system-atm     
+tcp6       0      0 :::6666                 :::*        LISTEN      9591/system-atm    
+```
+
 There we go! We could also use lsof:
 
+```sh
 ➜ root@cluster3-node1:~# lsof -i :6666
 COMMAND    PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
 system-at 9591 root    3u  IPv6  47760      0t0  TCP *:6666 (LISTEN)
-Before we kill the process we can check the magic /proc directory for the full process path:
+```
 
+Before we kill the process we can check the magic `/proc` directory for the full process path:
+
+```sh
 ➜ root@cluster3-node1:~# ls -lh /proc/9591/exe
 lrwxrwxrwx 1 root root 0 Sep 26 16:10 /proc/9591/exe -> /bin/system-atm
+```
+
 So we finish it:
 
+```sh
 ➜ root@cluster3-node1:~# kill -9 9591
 
 ➜ root@cluster3-node1:~# rm /bin/system-atm
+```
+
 Done.
 
-CKS Tips Kubernetes 1.25
+# CKS Tips Kubernetes 1.25
+
 In this section we'll provide some tips on how to handle the CKS exam and browser terminal.
 
+
+## Knowledge
  
 
-Knowledge
- 
-
-Pre-Knowledge
+### Pre-Knowledge
 
 You should have your CKA knowledge up to date and be fast with kubectl, so we suggest to do:
 
-Study all scenarios on https://killercoda.com/killer-shell-cka
-Knowledge
+* Study all scenarios on https://killercoda.com/killer-shell-cka
 
-Study all topics as proposed in the curriculum till you feel comfortable with all.
-Study all scenarios on https://killercoda.com/killer-shell-cks
-Read the free Sysdig Kubernetes Security Guide
-Also a nice read (though based on outdated k8s version) is the Kubernetes Security book by Liz Rice
-Check out the Cloud Native Security Whitepaper
-Great repository with many tips and sources: walidshari
-Approach
+### Knowledge
 
-Do 1 or 2 test session with this CKS Simulator. Understand the solutions and maybe try out other ways to achieve the same thing.
-Setup your aliases, be fast and breath kubectl
-Content
+* Study all topics as proposed in the curriculum till you feel comfortable with all.
+* Study all scenarios on https://killercoda.com/killer-shell-cks
+* Read the free Sysdig (Kubernetes Security Guide)[https://sysdig.com/resources/ebooks/kubernetes-security-guide]
+* Also a nice read (though based on outdated k8s version) is the (Kubernetes Security book)[https://info.aquasec.com/container-security-book] by Liz Rice
+* Check out the (Cloud Native Security Whitepaper)[https://github.com/cncf/sig-security/blob/master/security-whitepaper/CNCF_cloud-native-security-whitepaper-Nov2020.pdf]
+* Great repository with many tips and sources: (walidshari)[https://github.com/walidshaari/Certified-Kubernetes-Security-Specialist]
+
+### Approach
+
+* Do 1 or 2 test session with this CKS Simulator. Understand the solutions and maybe try out other ways to achieve the same thing.
+* Setup your aliases, be fast and breath kubectl
+
+### Content
 
 Be comfortable with changing the kube-apiserver in a kubeadm setup
-Be able to work with AdmissionControllers
-Know how to create and use the ImagePolicyWebhook
-Know how to use opensource tools Falco, Sysdig, Tracee, Trivy
+Be able to work with (AdmissionControllers)[https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers]
+Know how to create and use the (ImagePolicyWebhook)[https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#imagepolicywebhook]
+Know how to use opensource tools (Falco)[https://falco.org/], (Sysdig)[https://github.com/draios/sysdig], (Tracee)[https://github.com/aquasecurity/tracee], (Trivy)[https://github.com/aquasecurity/trivy] 
  
 
-CKS Exam Info
-Read the Curriculum
+# CKS Exam Info
+
+## Read the Curriculum
 
 https://github.com/cncf/curriculum
 
-Read the Handbook
+## Read the Handbook
 
 https://docs.linuxfoundation.org/tc-docs/certification/lf-candidate-handbook
 
-Read the important tips
+## Read the important tips
 
 https://docs.linuxfoundation.org/tc-docs/certification/important-instructions-cks
 
-Read the FAQ
+## Read the FAQ
 
 https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks
 
  
 
-Kubernetes documentation
+# Kubernetes documentation
+
 Get familiar with the Kubernetes documentation and be able to use the search. Allowed links are:
 
 https://kubernetes.io/docs
@@ -4043,7 +4167,8 @@ https://kubernetes.io/blog
 https://aquasecurity.github.io/trivy
 https://falco.org/docs
 https://gitlab.com/apparmor/apparmor/-/wikis/Documentation
-NOTE: Verify the list here
+
+###### NOTE: Verify the list (here)[https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks#cks]
 
  
 
