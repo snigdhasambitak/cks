@@ -2007,11 +2007,13 @@ Find the offending Pod(s) and remove these by reducing the replicas of the paren
 
  
 
-Answer:
+#### Answer:
+
 Syscalls are used by processes running in Userspace to communicate with the Linux Kernel. There are many available syscalls: https://man7.org/linux/man-pages/man2/syscalls.2.html. It makes sense to restrict these for container processes and Docker/Containerd already restrict some by default, like the reboot Syscall. Restricting even more is possible for example using Seccomp or AppArmor.
 
 But for this task we should simply find out which binary process executes a specific Syscall. Processes in containers are simply run on the same Linux operating system, but isolated. That's why we first check on which nodes the Pods are running:
 
+```sh
 ➜ k -n team-yellow get pod -owide
 NAME                                 ...   NODE               NOMINATED NODE   ...
 collector1-7585cc58cb-n5rtd   1/1    ...   cluster1-node1   <none>           ...
@@ -2019,8 +2021,11 @@ collector1-7585cc58cb-vdlp9   1/1    ...   cluster1-node1   <none>           ...
 collector2-8556679d96-z7g7c   1/1    ...   cluster1-node1   <none>           ...
 collector3-8b58fdc88-pjg24    1/1    ...   cluster1-node1   <none>           ...
 collector3-8b58fdc88-s9ltc    1/1    ...   cluster1-node1   <none>           ...
-All on cluster1-node1, hence we ssh into it and find the processes for the first Deployment collector1 .
+```
 
+All on `cluster1-node1`, hence we ssh into it and find the processes for the first Deployment collector1 .
+
+```sh
 ➜ ssh cluster1-node1
 
 ➜ root@cluster1-node1:~# crictl pods --name collector1
@@ -2035,16 +2040,23 @@ CONTAINER ID        IMAGE               CREATED          ...       POD ID
 ➜ root@cluster1-node1:~# crictl inspect 9ea02422f8660 | grep args -A1
         "args": [
           "./collector1-process"
-Using crictl pods we first searched for the Pods of Deployment collector1, which has two replicas
-We then took one pod-id to find it's containers using crictl ps
-And finally we used crictl inspect to find the process name, which is collector1-process
+```
+
+* Using crictl pods we first searched for the Pods of Deployment collector1, which has two replicas
+* We then took one pod-id to find it's containers using crictl ps
+* And finally we used crictl inspect to find the process name, which is collector1-process
+
 We can find the process PIDs (two because there are two Pods):
 
+```
 ➜ root@cluster1-node1:~# ps aux | grep collector1-process
 root       35039  0.0  0.1 702208  1044 ?        Ssl  13:37   0:00 ./collector1-process
 root       35059  0.0  0.1 702208  1044 ?        Ssl  13:37   0:00 ./collector1-process
+```
+
 Using the PIDs we can call strace to find Sycalls:
 
+```sh
 ➜ root@cluster1-node1:~# strace -p 35039
 strace: Process 35039 attached
 futex(0x4d7e68, FUTEX_WAIT_PRIVATE, 0, NULL) = 0
@@ -2056,10 +2068,13 @@ kill(666, SIGTERM)                      = -1 ESRCH (No such process)
 epoll_pwait(3, ^Cstrace: Process 35039 detached
  <detached ...>
 ...
+```
+
 First try and already a catch! We see it uses the forbidden Syscall by calling kill(666, SIGTERM).
 
 Next let's check the Deployment collector2 processes:
 
+```sh
 ➜ root@cluster1-node1:~# ps aux | grep collector2-process
 root       35375  0.0  0.0 702216   604 ?        Ssl  13:37   0:00 ./collector2-process
 
@@ -2070,8 +2085,11 @@ futex(0x4d9e68, FUTEX_WAIT_PRIVATE, 0, NULL) = 0
 futex(0x4d9e68, FUTEX_WAIT_PRIVATE, 0, NULL) = 0
 futex(0x4d9e68, FUTEX_WAIT_PRIVATE, 0, NULL) = 0
 ...
+```
+
 Looks alright. What about collector3:
 
+```sh
 ➜ root@cluster1-node1:~# ps aux | grep collector3-process
 root       35155  0.0  0.1 702472  1040 ?        Ssl  13:37   0:00 ./collector3-process
 root       35241  0.0  0.1 702472  1044 ?        Ssl  13:37   0:00 ./collector3-process
@@ -2084,40 +2102,46 @@ futex(0x4d9e68, FUTEX_WAIT_PRIVATE, 0, NULL) = 0
 epoll_pwait(3, [], 128, 999, NULL, 1)   = 0
 epoll_pwait(3, [], 128, 999, NULL, 1)   = 0
 ...
+```
+
 Also nothing about the forbidden Syscall. So we finalise the task:
 
+```sh
 k -n team-yellow scale deploy collector1 --replicas 0
+```
+
 And the world is a bit safer again.
 
  
 
- 
-
 ## Question 15 | Configure TLS on Ingress
-Task weight: 4%
+#### Task weight: 4%
 
  
 
-Use context: kubectl config use-context workload-prod
+Use context: `kubectl config use-context workload-prod`
 
  
 
-In Namespace team-pink there is an existing Nginx Ingress resources named secure which accepts two paths /app and /api which point to different ClusterIP Services.
+In Namespace `team-pink` there is an existing Nginx Ingress resources named `secure` which accepts two paths `/app` and `/api` which point to different ClusterIP Services.
 
 From your main terminal you can connect to it using for example:
 
-HTTP: curl -v http://secure-ingress.test:31080/app
-HTTPS: curl -kv https://secure-ingress.test:31443/app
+* HTTP: `curl -v http://secure-ingress.test:31080/app`
+* HTTPS: `curl -kv https://secure-ingress.test:31443/app`
+
 Right now it uses a default generated TLS certificate by the Nginx Ingress Controller.
 
-You're asked to instead use the key and certificate provided at /opt/course/15/tls.key and /opt/course/15/tls.crt. As it's a self-signed certificate you need to use curl -k when connecting to it.
+You're asked to instead use the key and certificate provided at `/opt/course/15/tls.key` and `/opt/course/15/tls.crt`. As it's a self-signed certificate you need to use `curl -k` when connecting to it.
 
  
 
-Answer:
-Investigate
-We can get the IP address of the Ingress and we see it's the same one to which secure-ingress.test is pointing to:
+#### Answer:
 
+Investigate
+We can get the IP address of the Ingress and we see it's the same one to which `secure-ingress.test` is pointing to:
+
+```sh
 ➜ k -n team-pink get ing secure 
 NAME     CLASS    HOSTS                 ADDRESS          PORTS   AGE
 secure   <none>   secure-ingress.test   192.168.100.12   80      7m11s
@@ -2125,15 +2149,21 @@ secure   <none>   secure-ingress.test   192.168.100.12   80      7m11s
 ➜ ping secure-ingress.test
 PING cluster1-node1 (192.168.100.12) 56(84) bytes of data.
 64 bytes from cluster1-node1 (192.168.100.12): icmp_seq=1 ttl=64 time=0.316 ms
+```
+
 Now, let's try to access the paths /app and /api via HTTP:
 
+```sh
 ➜ curl http://secure-ingress.test:31080/app
 This is the backend APP!
 
 ➜ curl http://secure-ingress.test:31080/api
 This is the API Server!
+```
+
 What about HTTPS?
 
+```sh
 ➜ curl https://secure-ingress.test:31443/api
 curl: (60) SSL certificate problem: unable to get local issuer certificate
 More details here: https://curl.haxx.se/docs/sslcerts.html
@@ -2144,8 +2174,11 @@ how to fix it, please visit the web page mentioned above.
 
 ➜ curl -k https://secure-ingress.test:31443/api
 This is the API Server!
+```
+
 HTTPS seems to be already working if we accept self-signed certificated using -k. But what kind of certificate is used by the server?
 
+```sh
 ➜ curl -kv https://secure-ingress.test:31443/api
 ...
 * Server certificate:
@@ -2155,13 +2188,16 @@ HTTPS seems to be already working if we accept self-signed certificated using -k
 *  issuer: O=Acme Co; CN=Kubernetes Ingress Controller Fake Certificate
 *  SSL certificate verify result: unable to get local issuer certificate (20), continuing anyway.
 ...
+```
+
 It seems to be "Kubernetes Ingress Controller Fake Certificate".
 
- 
 
-Implement own TLS certificate
+#### Implement own TLS certificate
+
 First, let us generate a Secret using the provided key and certificate:
 
+```sh
 ➜ cd /opt/course/15
 
 ➜ :/opt/course/15$ ls
@@ -2169,11 +2205,16 @@ tls.crt  tls.key
 
 ➜ :/opt/course/15$ k -n team-pink create secret tls tls-secret --key tls.key --cert tls.crt
 secret/tls-secret created
+```
+
 Now, we configure the Ingress to make use of this Secret:
 
+```sh
 ➜ k -n team-pink get ing secure -oyaml > 15_ing_bak.yaml
 
 ➜ k -n team-pink edit ing secure
+```
+```yaml
 # kubectl -n team-pink edit ing secure
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -2206,13 +2247,19 @@ spec:
         path: /api
         pathType: ImplementationSpecific
 ...
+```
+
 After adding the changes we check the Ingress resource again:
 
+```sh
 ➜ k -n team-pink get ing
 NAME     CLASS    HOSTS                 ADDRESS          PORTS     AGE
 secure   <none>   secure-ingress.test   192.168.100.12   80, 443   25m
+```
+
 It now actually lists port 443 for HTTPS. To verify:
 
+```sh
 ➜ curl -k https://secure-ingress.test:31443/api
 This is the API Server!
 
@@ -2225,47 +2272,56 @@ This is the API Server!
 *  issuer: CN=secure-ingress.test; O=secure-ingress.test
 *  SSL certificate verify result: self signed certificate (18), continuing anyway.
 ...
+```
+
 We can see that the provided certificate is now being used by the Ingress for TLS termination.
 
  
 
- 
-
 ## Question 16 | Docker Image Attack Surface
-Task weight: 7%
+
+#### Task weight: 7%
+
+ 
+Use context: `kubectl config use-context workload-prod`
 
  
 
-Use context: kubectl config use-context workload-prod
+There is a Deployment `image-verify` in Namespace `team-blue` which runs image `registry.killer.sh:5000/image-verify:v1`. DevSecOps has asked you to improve this image by:
 
- 
+* Changing the base image to alpine:3.12
+* Not installing curl
+* Updating nginx to use the version constraint >=1.18.0
+* Running the main process as user myuser
 
-There is a Deployment image-verify in Namespace team-blue which runs image registry.killer.sh:5000/image-verify:v1. DevSecOps has asked you to improve this image by:
+**Do not** add any new lines to the Dockerfile, just edit existing ones. The file is located at `/opt/course/16/image/Dockerfile`.
 
-Changing the base image to alpine:3.12
-Not installing curl
-Updating nginx to use the version constraint >=1.18.0
-Running the main process as user myuser
-Do not add any new lines to the Dockerfile, just edit existing ones. The file is located at /opt/course/16/image/Dockerfile.
+Tag your version as `v2`. You can build, tag and push using:
 
-Tag your version as v2. You can build, tag and push using:
-
+```sh
 cd /opt/course/16/image
 podman build -t registry.killer.sh:5000/image-verify:v2 .
 podman run registry.killer.sh:5000/image-verify:v2 # to test your changes
 podman push registry.killer.sh:5000/image-verify:v2
+```
+
 Make the Deployment use your updated image tag v2.
 
  
 
-Answer:
+#### Answer:
+
 We should have a look at the Docker Image at first:
 
+```sh
 cd /opt/course/16/image
 
 cp Dockerfile Dockerfile.bak
 
 vim Dockerfile
+```
+
+```yaml
 # /opt/course/16/image/Dockerfile
 FROM alpine:3.4
 RUN apk update && apk add vim curl nginx=1.10.3-r0
@@ -2274,19 +2330,28 @@ COPY ./run.sh run.sh
 RUN ["chmod", "+x", "./run.sh"]
 USER root
 ENTRYPOINT ["/bin/sh", "./run.sh"]
-Very simple Dockerfile which seems to execute a script run.sh :
+```
 
+Very simple Dockerfile which seems to execute a script `run.sh` :
+
+```sh
 # /opt/course/16/image/run.sh
 while true; do date; id; echo; sleep 1; done
+```
+
 So it only outputs current date and credential information in a loop. We can see that output in the existing Deployment image-verify:
 
+```sh
 ➜ k -n team-blue logs -f -l id=image-verify
 Fri Sep 25 20:59:12 UTC 2020
 uid=0(root) gid=0(root) groups=0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),10(wheel),11(floppy),20(dialout),26(tape),27(video)
+```
+
 We see its running as root.
 
 Next we update the Dockerfile according to the requirements:
 
+```yaml
 # /opt/course/16/image/Dockerfile
 
 # change
@@ -2303,8 +2368,11 @@ RUN ["chmod", "+x", "./run.sh"]
 USER myuser
 
 ENTRYPOINT ["/bin/sh", "./run.sh"]
+```
+
 Then we build the new image:
 
+```sh
 ➜ :/opt/course/16/image$ podman build -t registry.killer.sh:5000/image-verify:v2 .
 ...
 STEP 7/7: ENTRYPOINT ["/bin/sh", "./run.sh"]
@@ -2312,8 +2380,11 @@ COMMIT registry.killer.sh:5000/image-verify:v2
 --> ceb8989101b
 Successfully tagged registry.killer.sh:5000/image-verify:v2
 ceb8989101bccd9f6b9c3b4c6c75f6c3561f19a5b784edd1f1a36fa0fb34a9df
+```
+
 We can then test our changes by running the container locally:
 
+```sh
 ➜ :/opt/course/16/image$ podman run registry.killer.sh:5000/image-verify:v2 
 Thu Sep 16 06:01:47 UTC 2021
 uid=101(myuser) gid=102(myuser) groups=102(myuser)
@@ -2323,8 +2394,11 @@ uid=101(myuser) gid=102(myuser) groups=102(myuser)
 
 Thu Sep 16 06:01:49 UTC 2021
 uid=101(myuser) gid=102(myuser) groups=102(myuser)
+```
+
 Looking good, so we push:
 
+```sh
 ➜ :/opt/course/16/image$ podman push registry.killer.sh:5000/image-verify:v2
 Getting image source signatures
 Copying blob cd0853834d88 done  
@@ -2335,9 +2409,15 @@ Copying blob 98895ed393d9 done
 Copying config ceb8989101 done  
 Writing manifest to image destination
 Storing signatures
+```
+
 And we update the Deployment to use the new image:
 
+```sh
 k -n team-blue edit deploy image-verify
+```
+
+```yaml
 # kubectl -n team-blue edit deploy image-verify
 apiVersion: apps/v1
 kind: Deployment
@@ -2350,60 +2430,70 @@ spec:
     spec:
       containers:
       - image: registry.killer.sh:5000/image-verify:v2 # change
+```
+
 And afterwards we can verify our changes by looking at the Pod logs:
 
+```sh
 ➜ k -n team-blue logs -f -l id=image-verify
 Fri Sep 25 21:06:55 UTC 2020
 uid=101(myuser) gid=102(myuser) groups=102(myuser)
+```
+
 Also to verify our changes even further:
 
+```sh
 ➜ k -n team-blue exec image-verify-55fbcd4c9b-x2flc -- curl
 OCI runtime exec failed: exec failed: container_linux.go:349: starting container process caused "exec: \"curl\": executable file not found in $PATH": unknown
 command terminated with exit code 126
 
 ➜ k -n team-blue exec image-verify-55fbcd4c9b-x2flc -- nginx -v
 nginx version: nginx/1.18.0
+```
+
 Another task solved.
 
- 
 
  
 
 ## Question 17 | Audit Log Policy
-Task weight: 7%
+
+#### Task weight: 7%
 
  
 
-Use context: kubectl config use-context infra-prod
+Use context: `kubectl config use-context infra-prod`
 
  
 
-Audit Logging has been enabled in the cluster with an Audit Policy located at /etc/kubernetes/audit/policy.yaml on cluster2-controlplane1.
+Audit Logging has been enabled in the cluster with an Audit Policy located at `/etc/kubernetes/audit/policy.yaml` on `cluster2-controlplane1`.
 
 Change the configuration so that only one backup of the logs is stored.
 
 Alter the Policy in a way that it only stores logs:
 
-From Secret resources, level Metadata
-From "system:nodes" userGroups, level RequestResponse
-After you altered the Policy make sure to empty the log file so it only contains entries according to your changes, like using truncate -s 0 /etc/kubernetes/audit/logs/audit.log.
+* From Secret resources, level Metadata
+* From "system:nodes" userGroups, level RequestResponse
+
+After you altered the Policy make sure to empty the log file so it only contains entries according to your changes, like using `truncate -s 0 /etc/kubernetes/audit/logs/audit.log`.
 
  
 
-NOTE: You can use jq to render json more readable. cat data.json | jq
-
+###### NOTE: You can use jq to render json more readable. cat data.json | jq
  
 
- 
+#### Answer:
 
-Answer:
 First we check the apiserver configuration and change as requested:
 
+```sh
 ➜ ssh cluster2-controlplane1
 
 ➜ root@cluster2-controlplane1:~# cp /etc/kubernetes/manifests/kube-apiserver.yaml ~/17_kube-apiserver.yaml # backup
 
 ➜ root@cluster2-controlplane1:~# vim /etc/kubernetes/manifests/kube-apiserver.yaml 
+```
+```yaml
 # /etc/kubernetes/manifests/kube-apiserver.yaml 
 apiVersion: v1
 kind: Pod
@@ -2427,22 +2517,28 @@ spec:
     - --advertise-address=192.168.100.21
     - --allow-privileged=true
 ...
- 
+```
 
-NOTE: You should know how to enable Audit Logging completely yourself as described in the docs. Feel free to try this in another cluster in this environment.
+
+###### NOTE: You should know how to enable Audit Logging completely yourself as described in the docs. Feel free to try this in another cluster in this environment.
 
  
 
 Now we look at the existing Policy:
 
+```sh
 ➜ root@cluster2-controlplane1:~# vim /etc/kubernetes/audit/policy.yaml
+```
+```yaml
 # /etc/kubernetes/audit/policy.yaml
 apiVersion: audit.k8s.io/v1
 kind: Policy
 rules:
 - level: Metadata
-We can see that this simple Policy logs everything on Metadata level. So we change it to the requirements:
+```
 
+We can see that this simple Policy logs everything on Metadata level. So we change it to the requirements:
+```yaml
 # /etc/kubernetes/audit/policy.yaml
 apiVersion: audit.k8s.io/v1
 kind: Policy
@@ -2460,8 +2556,11 @@ rules:
 
 # for everything else don't log anything
 - level: None
+```
+
 After saving the changes we have to restart the apiserver:
 
+```sh
 ➜ root@cluster2-controlplane1:~# cd /etc/kubernetes/manifests/
 
 ➜ root@cluster2-controlplane1:/etc/kubernetes/manifests# mv kube-apiserver.yaml ..
@@ -2471,9 +2570,15 @@ After saving the changes we have to restart the apiserver:
 ➜ root@cluster2-controlplane1:/etc/kubernetes/manifests# truncate -s 0 /etc/kubernetes/audit/logs/audit.log
 
 ➜ root@cluster2-controlplane1:/etc/kubernetes/manifests# mv ../kube-apiserver.yaml .
+```
+
 Once the apiserver is running again we can check the new logs and scroll through some entries:
 
+```sh
 cat audit.log | tail | jq
+```
+
+```json
 {
   "kind": "Event",
   "apiVersion": "audit.k8s.io/v1",
@@ -2505,8 +2610,11 @@ cat audit.log | tail | jq
     "authentication.k8s.io/legacy-token": "..."
   }
 }
+```
+
 Above we logged a watch action by OPA Gatekeeper for Secrets, level Metadata.
 
+```json
 {
   "kind": "Event",
   "apiVersion": "audit.k8s.io/v1",
@@ -2575,10 +2683,13 @@ Above we logged a watch action by OPA Gatekeeper for Secrets, level Metadata.
     "authorization.k8s.io/reason": ""
   }
 }
+```
+
 And in the one above we logged a list action by system:nodes for a ConfigMaps, level RequestResponse.
 
 Because all JSON entries are written in a single line in the file we could also run some simple verifications on our Policy:
 
+```yaml
 # shows Secret entries
 cat audit.log | grep '"resource":"secrets"' | wc -l
 
@@ -2590,18 +2701,20 @@ cat audit.log | grep -v '"level":"RequestResponse"' | wc -l
 
 # shows RequestResponse level entries are only for system:nodes
 cat audit.log | grep '"level":"RequestResponse"' | grep -v "system:nodes" | wc -l
+```
+
 Looks like our job is done.
 
- 
 
  
 
 ## Question 18 | Investigate Break-in via Audit Log
-Task weight: 4%
+
+#### Task weight: 4%
 
  
 
-Use context: kubectl config use-context infra-prod
+Use context: `kubectl config use-context infra-prod`
 
  
 
