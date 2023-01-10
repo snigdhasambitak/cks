@@ -1428,36 +1428,42 @@ Fixing the errors is the job of another team, lucky us.
  
 
 ## Question 10 | Container Runtime Sandbox gVisor
-Task weight: 4%
+
+#### Task weight: 4%
 
  
 
-Use context: kubectl config use-context workload-prod
+Use context: `kubectl config use-context workload-prod`
 
  
 
-Team purple wants to run some of their workloads more secure. Worker node cluster1-node2 has container engine containerd already installed and its configured to support the runsc/gvisor runtime.
+Team purple wants to run some of their workloads more secure. Worker node cluster1-node2 has container engine containerd already installed and its configured to support the `runsc/gvisor runtime`.
 
-Create a RuntimeClass named gvisor with handler runsc.
+Create a `RuntimeClass` named `gvisor` with handler `runsc`.
 
-Create a Pod that uses the RuntimeClass. The Pod should be in Namespace team-purple, named gvisor-test and of image nginx:1.19.2. Make sure the Pod runs on cluster1-node2.
+Create a Pod that uses the `RuntimeClass`. The Pod should be in `Namespace team-purple`, named `gvisor-test` and of image `nginx:1.19.2`. Make sure the Pod runs on `cluster1-node2`.
 
-Write the dmesg output of the successfully started Pod into /opt/course/10/gvisor-test-dmesg.
+Write the `dmesg` output of the successfully started Pod into `/opt/course/10/gvisor-test-dmesg`.
 
  
 
-Answer:
+#### Answer:
+
 We check the nodes and we can see that all are using containerd:
 
+```sh
 ➜ k get node -o wide
 NAME                     STATUS   ROLES              ... CONTAINER-RUNTIME
 cluster1-controlplane1   Ready    control-plane      ... containerd://1.5.2
 cluster1-node1           Ready    <none>             ... containerd://1.5.2
 cluster1-node2           Ready    <none>             ... containerd://1.5.2
+```
+
 But just one has containerd configured to work with runsc/gvisor runtime which is cluster1-node2.
 
 (Optionally) we ssh into the worker node and check if containerd+runsc is configured:
 
+```sh
 ➜ ssh cluster1-node2
 
 ➜ root@cluster1-node2:~# runsc --version
@@ -1467,8 +1473,11 @@ spec: 1.0.1-dev
 ➜ root@cluster1-node2:~# cat /etc/containerd/config.toml | grep runsc
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runsc]
     runtime_type = "io.containerd.runsc.v1"
+```
+
 Now we best head to the k8s docs for RuntimeClasses https://kubernetes.io/docs/concepts/containers/runtime-class, steal an example and create the gvisor one:
 
+```sh
 vim 10_rtc.yaml
 # 10_rtc.yaml
 apiVersion: node.k8s.io/v1
@@ -1476,11 +1485,17 @@ kind: RuntimeClass
 metadata:
   name: gvisor
 handler: runsc
+```
+```sh
 k -f 10_rtc.yaml create
+```
+
 And the required Pod:
 
+```sh
 k -n team-purple run gvisor-test --image=nginx:1.19.2 $do > 10_pod.yaml
-
+```
+```yaml
 vim 10_pod.yaml
 # 10_pod.yaml
 apiVersion: v1
@@ -1501,9 +1516,15 @@ spec:
   dnsPolicy: ClusterFirst
   restartPolicy: Always
 status: {}
+```
+
+```sh
 k -f 10_pod.yaml create
+```
+
 After creating the pod we should check if its running and if it uses the gvisor sandbox:
 
+```sh
 ➜ k -n team-purple get pod gvisor-test
 NAME          READY   STATUS    RESTARTS   AGE
 gvisor-test   1/1     Running   0          30s
@@ -1521,19 +1542,23 @@ gvisor-test   1/1     Running   0          30s
 [    2.840216] Rewriting operating system in Javascript...
 [    2.956226] Creating bureaucratic processes...
 [    3.329981] Ready!
+
+```
 Looking good. And as required we finally write the dmesg output into the file:
 
+```sh
 k -n team-purple exec gvisor-test > /opt/course/10/gvisor-test-dmesg -- dmesg
- 
+```
 
  
 
 ## Question 11 | Secrets in ETCD
-Task weight: 7%
+
+#### Task weight: 7%
 
  
 
-Use context: kubectl config use-context workload-prod
+Use context: `kubectl config use-context workload-prod`
 
  
 
