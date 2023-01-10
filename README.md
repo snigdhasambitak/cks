@@ -572,18 +572,23 @@ Connect using `ssh cluster2-controlplane1` and `ssh cluster2-node1`.
 
 On the master node ensure (correct if necessary) that the CIS recommendations are set for:
 
-The --profiling argument of the kube-controller-manager
-The ownership of directory /var/lib/etcd
+* The --profiling argument of the kube-controller-manager
+
+* The ownership of directory /var/lib/etcd
+
 On the worker node ensure (correct if necessary) that the CIS recommendations are set for:
 
-The permissions of the kubelet configuration /var/lib/kubelet/config.yaml
-The --client-ca-file argument of the kubelet
+* The permissions of the kubelet configuration /var/lib/kubelet/config.yaml
+* The --client-ca-file argument of the kubelet
  
 
-Answer:
-Number 1
+#### Answer:
+
+##### Number 1
+
 First we ssh into the master node run kube-bench against the master components:
 
+```sh
 ➜ ssh cluster2-controlplane1
 
 ➜ root@cluster2-controlplane1:~# kube-bench run --targets=master
@@ -593,8 +598,11 @@ First we ssh into the master node run kube-bench against the master components:
 13 checks FAIL
 11 checks WARN
 0 checks INFO
+```
+
 We see some passes, fails and warnings. Let's check the required task (1) of the controller manager:
 
+```sh
 ➜ root@cluster2-controlplane1:~# kube-bench run --targets=master | grep kube-controller -A 3
 1.3.1 Edit the Controller Manager pod specification file /etc/kubernetes/manifests/kube-controller-manager.yaml
 on the master node and set the --terminated-pod-gc-threshold to an appropriate threshold,
@@ -608,11 +616,16 @@ on the master node and set the below parameter.
 1.3.6 Edit the Controller Manager pod specification file /etc/kubernetes/manifests/kube-controller-manager.yaml
 on the master node and set the --feature-gates parameter to include RotateKubeletServerCertificate=true.
 --feature-gates=RotateKubeletServerCertificate=true
+```
+
 There we see 1.3.2 which suggests to set --profiling=false, so we obey:
 
+```sh
 ➜ root@cluster2-controlplane1:~# vim /etc/kubernetes/manifests/kube-controller-manager.yaml
+```
 Edit the corresponding line:
 
+```yaml
 # /etc/kubernetes/manifests/kube-controller-manager.yaml
 apiVersion: v1
 kind: Pod
@@ -648,8 +661,11 @@ spec:
     - --use-service-account-credentials=true
     - --profiling=false            # add
 ...
+```
+
 We wait for the Pod to restart, then run kube-bench again to check if the problem was solved:
 
+```sh
 ➜ root@cluster2-controlplane1:~# kube-bench run --targets=master | grep kube-controller -A 3
 1.3.1 Edit the Controller Manager pod specification file /etc/kubernetes/manifests/kube-controller-manager.yaml
 on the master node and set the --terminated-pod-gc-threshold to an appropriate threshold,
@@ -659,46 +675,69 @@ for example:
 1.3.6 Edit the Controller Manager pod specification file /etc/kubernetes/manifests/kube-controller-manager.yaml
 on the master node and set the --feature-gates parameter to include RotateKubeletServerCertificate=true.
 --feature-gates=RotateKubeletServerCertificate=true
+```
+
 Problem solved and 1.3.2 is passing:
 
+```sh
 root@cluster2-controlplane1:~# kube-bench run --targets=master | grep 1.3.2
 [PASS] 1.3.2 Ensure that the --profiling argument is set to false (Scored)
  
+```
 
-Number 2
+##### Number 2
+
 Next task (2) is to check the ownership of directory /var/lib/etcd, so we first have a look:
 
+```sh
 ➜ root@cluster2-controlplane1:~# ls -lh /var/lib | grep etcd
 drwx------  3 root      root      4.0K Sep 11 20:08 etcd
+```
+
 Looks like user root and group root. Also possible to check using:
 
+```sh
 ➜ root@cluster2-controlplane1:~# stat -c %U:%G /var/lib/etcd
 root:root
+```
 But what has kube-bench to say about this?
 
+```sh
 ➜ root@cluster2-controlplane1:~# kube-bench run --targets=master | grep "/var/lib/etcd" -B5
 
 1.1.12 On the etcd server node, get the etcd data directory, passed as an argument --data-dir,
 from the below command:
+
 ps -ef | grep etcd
 Run the below command (based on the etcd data directory found above).
 For example, chown etcd:etcd /var/lib/etcd
+```
+
 To comply we run the following:
 
+```sh
 ➜ root@cluster2-controlplane1:~# chown etcd:etcd /var/lib/etcd
 
 ➜ root@cluster2-controlplane1:~# ls -lh /var/lib | grep etcd
 drwx------  3 etcd      etcd      4.0K Sep 11 20:08 etcd
+```
+
 This looks better. We run kube-bench again, and make sure test 1.1.12. is passing.
 
+```sh
 ➜ root@cluster2-controlplane1:~# kube-bench run --targets=master | grep 1.1.12
 [PASS] 1.1.12 Ensure that the etcd data directory ownership is set to etcd:etcd (Scored)
+```
+
 Done.
 
  
 
-Number 3
+##### Number 3
+
 To continue with number (3), we'll head to the worker node and ensure that the kubelet configuration file has the minimum necessary permissions as recommended:
+
+```sh
 
 ➜ ssh cluster2-node1
 
@@ -709,41 +748,61 @@ To continue with number (3), we'll head to the worker node and ensure that the k
 10 checks FAIL
 2 checks WARN
 0 checks INFO
+```
+
 Also here some passes, fails and warnings. We check the permission level of the kubelet config file:
 
+```sh
 ➜ root@cluster2-node1:~# stat -c %a /var/lib/kubelet/config.yaml
 777
+```
+
 777 is highly permissive access level and not recommended by the kube-bench guidelines:
 
+```sh
 ➜ root@cluster2-node1:~# kube-bench run --targets=node | grep /var/lib/kubelet/config.yaml -B2
 
 4.1.9 Run the following command (using the config file location identified in the Audit step)
 chmod 644 /var/lib/kubelet/config.yaml
+```
+
 We obey and set the recommended permissions:
 
+```sh
 ➜ root@cluster2-node1:~# chmod 644 /var/lib/kubelet/config.yaml
 
 ➜ root@cluster2-node1:~# stat -c %a /var/lib/kubelet/config.yaml
 644
+```
+
 And check if test 2.2.10 is passing:
 
+```sh
 ➜ root@cluster2-node1:~# kube-bench run --targets=node | grep 4.1.9
 [PASS] 2.2.10 Ensure that the kubelet configuration file has permissions set to 644 or more restrictive (Scored)
- 
+```
 
-Number 4
+
+#### Number 4
+
 Finally for number (4), let's check whether --client-ca-file argument for the kubelet is set properly according to kube-bench recommendations:
 
+```sh
 ➜ root@cluster2-node1:~# kube-bench run --targets=node | grep client-ca-file
 [PASS] 4.2.3 Ensure that the --client-ca-file argument is set as appropriate (Automated)
+```
+
 This looks passing with 4.2.3. The other ones are about the file that the parameter points to and can be ignored here.
 
 To further investigate we run the following command to locate the kubelet config file, and open it:
 
+```sh
 ➜ root@cluster2-node1:~# ps -ef | grep kubelet
 root      5157     1  2 20:28 ?        00:03:22 /usr/bin/kubelet --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf --config=/var/lib/kubelet/config.yaml --network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2
 root     19940 11901  0 22:38 pts/0    00:00:00 grep --color=auto kubelet
+```
 
+```yaml
 ➜ root@croot@cluster2-node1:~# vim /var/lib/kubelet/config.yaml
 # /var/lib/kubelet/config.yaml
 apiVersion: kubelet.config.k8s.io/v1beta1
@@ -756,6 +815,7 @@ authentication:
   x509:
     clientCAFile: /etc/kubernetes/pki/ca.crt
 ...
+```
 The clientCAFile points to the location of the certificate, which is correct.
 
  
@@ -763,6 +823,7 @@ The clientCAFile points to the location of the certificate, which is correct.
  
 
 ## Question 6 | Verify Platform Binaries
+
 Task weight: 2%
 
  
