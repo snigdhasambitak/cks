@@ -4321,9 +4321,9 @@ set shiftwidth=2
 
 The `expandtab` make sure to use spaces for tabs. Memorize these and just type them down. You can't have any written notes with commands on your desktop etc.
 
-### Optional Setup
+## Optional Setup
 
-#### Fast dry-run output
+### Fast dry-run output
 
 ```sh
 export do="--dry-run=client -o yaml"
@@ -4331,7 +4331,7 @@ export do="--dry-run=client -o yaml"
 
 This way you can just run `k run pod1 --image=nginx $do`. Short for "dry output", but use whatever name you like.
 
-#### Fast pod delete
+### Fast pod delete
 
 ```sh
 export now="--force --grace-period 0"
@@ -4339,11 +4339,11 @@ export now="--force --grace-period 0"
 
 This way you can run k delete pod1 $now and don't have to wait for ~30 seconds termination time.
 
-#### Persist bash settings
+### Persist bash settings
 
 You can store aliases and other setup in ~/.bashrc if you're planning on using different shells or tmux.
 
-#### Alias Namespace
+### Alias Namespace
 
 In addition you could define an alias like:
 
@@ -4366,7 +4366,7 @@ k -n my-namespace get pod
 ...
 ```
 
-### Be fast
+## Be fast
 Use the `history` command to reuse already entered commands or use even faster history search through **Ctrl r **.
 
 If a command takes some time to execute, like sometimes `kubectl delete pod x`. You can put a task in the background using **Ctrl z** and pull it back into foreground running command `fg`.
@@ -4380,15 +4380,15 @@ k delete pod x $now # if export from above is configured
 ```
 
 
-### Vim
+## Vim
 
 Be great with vim.
 
-#### toggle vim line numbers
+### toggle vim line numbers
 
 When in `vim` you can press **Esc** and type `:set number` or `:set nonumber` followed by **Enter** to toggle line numbers. This can be useful when finding syntax errors based on line - but can be bad when wanting to mark&copy by mouse. You can also just jump to a line number with **Esc** `:22` + **Enter**.
 
-#### copy&paste
+### copy&paste
 
 Get used to copy/paste/cut with vim:
 
@@ -4399,13 +4399,13 @@ Cut marked lines: d
 Past lines: p or P
 ```
 
-#### Indent multiple lines
+### Indent multiple lines
 
 To indent multiple lines press **Esc** and type `:set shiftwidth=2`. First mark multiple lines using `Shift v` and the up/down keys. Then to indent the marked lines press `>` or `<`. You can then press . to repeat the action.
 
 
 
-### Split terminal screen
+## Split terminal screen
 By default tmux is installed and can be used to split your one terminal into multiple. But just do this if you know your shit, because scrolling is different and copy&pasting might be weird.
 
 https://www.hamvocke.com/blog/a-quick-and-easy-guide-to-tmux
