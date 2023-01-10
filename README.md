@@ -4119,10 +4119,10 @@ You should have your CKA knowledge up to date and be fast with kubectl, so we su
 
 * Study all topics as proposed in the curriculum till you feel comfortable with all.
 * Study all scenarios on https://killercoda.com/killer-shell-cks
-* Read the free Sysdig (Kubernetes Security Guide)[https://sysdig.com/resources/ebooks/kubernetes-security-guide]
-* Also a nice read (though based on outdated k8s version) is the (Kubernetes Security book)[https://info.aquasec.com/container-security-book] by Liz Rice
-* Check out the (Cloud Native Security Whitepaper)[https://github.com/cncf/sig-security/blob/master/security-whitepaper/CNCF_cloud-native-security-whitepaper-Nov2020.pdf]
-* Great repository with many tips and sources: (walidshari)[https://github.com/walidshaari/Certified-Kubernetes-Security-Specialist]
+* Read the free Sysdig [Kubernetes Security Guide](https://sysdig.com/resources/ebooks/kubernetes-security-guide)
+* Also a nice read (though based on outdated k8s version) is the [Kubernetes Security book](https://info.aquasec.com/container-security-book) by Liz Rice
+* Check out the [Cloud Native Security Whitepaper](https://github.com/cncf/sig-security/blob/master/security-whitepaper/CNCF_cloud-native-security-whitepaper-Nov2020.pdf)
+* Great repository with many tips and sources: [walidshari](https://github.com/walidshaari/Certified-Kubernetes-Security-Specialist)
 
 ### Approach
 
@@ -4132,9 +4132,9 @@ You should have your CKA knowledge up to date and be fast with kubectl, so we su
 ### Content
 
 Be comfortable with changing the kube-apiserver in a kubeadm setup
-Be able to work with (AdmissionControllers)[https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers]
-Know how to create and use the (ImagePolicyWebhook)[https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#imagepolicywebhook]
-Know how to use opensource tools (Falco)[https://falco.org/], (Sysdig)[https://github.com/draios/sysdig], (Tracee)[https://github.com/aquasecurity/tracee], (Trivy)[https://github.com/aquasecurity/trivy] 
+Be able to work with [AdmissionControllers](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers)
+Know how to create and use the [ImagePolicyWebhook](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#imagepolicywebhook)
+Know how to use opensource tools [Falco](https://falco.org/), [Sysdig](https://github.com/draios/sysdig), [Tracee](https://github.com/aquasecurity/tracee), [Trivy](https://github.com/aquasecurity/trivy)
  
 
 # CKS Exam Info
