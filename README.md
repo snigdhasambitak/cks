@@ -4225,12 +4225,17 @@ https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks
 
 Get familiar with the Kubernetes documentation and be able to use the search. Allowed links are:
 
-https://kubernetes.io/docs
-https://github.com/kubernetes
-https://kubernetes.io/blog
-https://aquasecurity.github.io/trivy
-https://falco.org/docs
-https://gitlab.com/apparmor/apparmor/-/wikis/Documentation
+* https://kubernetes.io/docs
+
+* https://github.com/kubernetes
+
+* https://kubernetes.io/blog
+
+* https://aquasecurity.github.io/trivy
+
+* https://falco.org/docs
+
+* https://gitlab.com/apparmor/apparmor/-/wikis/Documentation
 
 ###### NOTE: Verify the list [here](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks#cks)
 
