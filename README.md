@@ -1426,7 +1426,7 @@ Fixing the errors is the job of another team, lucky us.
 
  
 
-Question 10 | Container Runtime Sandbox gVisor
+## Question 10 | Container Runtime Sandbox gVisor
 Task weight: 4%
 
  
@@ -1527,7 +1527,7 @@ k -n team-purple exec gvisor-test > /opt/course/10/gvisor-test-dmesg -- dmesg
 
  
 
-Question 11 | Secrets in ETCD
+## Question 11 | Secrets in ETCD
 Task weight: 7%
 
  
@@ -1608,7 +1608,7 @@ confidential
 
  
 
-Question 12 | Hack Secrets
+## Question 12 | Hack Secrets
 Task weight: 8%
 
  
@@ -1735,7 +1735,7 @@ NOTE: One thing to consider is that giving the permission to "list" Secrets, wil
 
  
 
-Question 13 | Restrict access to Metadata Server
+## Question 13 | Restrict access to Metadata Server
 Task weight: 7%
 
  
@@ -1880,7 +1880,7 @@ Hence it allows Pods with label metadata-accessor to access everything.
 
  
 
-Question 14 | Syscall Activity
+## Question 14 | Syscall Activity
 Task weight: 4%
 
  
@@ -1981,7 +1981,7 @@ And the world is a bit safer again.
 
  
 
-Question 15 | Configure TLS on Ingress
+## Question 15 | Configure TLS on Ingress
 Task weight: 4%
 
  
@@ -2119,7 +2119,7 @@ We can see that the provided certificate is now being used by the Ingress for TL
 
  
 
-Question 16 | Docker Image Attack Surface
+## Question 16 | Docker Image Attack Surface
 Task weight: 7%
 
  
@@ -2257,7 +2257,7 @@ Another task solved.
 
  
 
-Question 17 | Audit Log Policy
+## Question 17 | Audit Log Policy
 Task weight: 7%
 
  
@@ -2484,7 +2484,7 @@ Looks like our job is done.
 
  
 
-Question 18 | Investigate Break-in via Audit Log
+## Question 18 | Investigate Break-in via Audit Log
 Task weight: 4%
 
  
@@ -2619,7 +2619,7 @@ By running cat audit.log | grep "p.auster" | grep Secret | grep password we can 
 
  
 
-Question 19 | Immutable Root FileSystem
+## Question 19 | Immutable Root FileSystem
 Task weight: 2%
 
  
@@ -2742,7 +2742,7 @@ The Deployment has been updated so that the container's file system is read-only
 
  
 
-Question 20 | Update Kubernetes
+## Question 20 | Update Kubernetes
 Task weight: 8%
 
  
@@ -3014,7 +3014,7 @@ We're up to date.
 
  
 
-Question 21 | Image Vulnerability Scanning
+## Question 21 | Image Vulnerability Scanning
 Task weight: 2%
 
  
@@ -3075,7 +3075,7 @@ docker.io/weaveworks/weave-kube:2.7.0
 
  
 
-Question 22 | Manual Static Security Analysis
+## Question 22 | Manual Static Security Analysis
 Task weight: 3%
 
  
@@ -3257,12 +3257,9 @@ export do="-o yaml --dry-run=client"
  
 
 These questions can be solved in the test environment provided through the CKS Simulator
-
  
 
- 
-
-Preview Question 1
+## Preview Question 1
 Use context: kubectl config use-context infra-prod
 
  
@@ -3463,7 +3460,7 @@ Feel free to verify this as well by actually creating Pods and Deployments as us
 
  
 
-Preview Question 2
+## Preview Question 2
 Use context: kubectl config use-context infra-prod
 
  
@@ -3642,7 +3639,8 @@ jeffs-playground
 
  
 
-Preview Question 3
+## Preview Question 3
+  
 Use context: kubectl config use-context workload-stage
 
  
