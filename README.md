@@ -1822,36 +1822,39 @@ We hacked all Secrets! It can be tricky to get RBAC right and secure.
 
  
 
-Use context: kubectl config use-context infra-prod
+Use context: `kubectl config use-context infra-prod`
 
  
 
-There is a metadata service available at http://192.168.100.21:32000 on which Nodes can reach sensitive data, like cloud credentials for initialisation. By default, all Pods in the cluster also have access to this endpoint. The DevSecOps team has asked you to restrict access to this metadata server.
+There is a metadata service available at `http://192.168.100.21:32000` on which Nodes can reach sensitive data, like cloud credentials for initialisation. By default, all Pods in the cluster also have access to this endpoint. The DevSecOps team has asked you to restrict access to this metadata server.
 
-In Namespace metadata-access:
+In Namespace `metadata-access`:
 
-Create a NetworkPolicy named metadata-deny which prevents egress to 192.168.100.21 for all Pods but still allows access to everything else
-Create a NetworkPolicy named metadata-allow which allows Pods having label role: metadata-accessor to access endpoint 192.168.100.21
+* Create a NetworkPolicy named `metadata-deny` which prevents egress to `192.168.100.21` for all Pods but still allows access to everything else
+* Create a NetworkPolicy named `metadata-allow` which allows Pods having label `role: metadata-accessor` to access endpoint `192.168.100.21`
+
 There are existing Pods in the target Namespace with which you can test your policies, but don't change their labels.
 
  
 
-Answer:
-There was a famous hack at Shopify which was based on revealed information via metadata for nodes.
-
+#### Answer:
  
 
-Check the Pods in the Namespace metadata-access and their labels:
+Check the Pods in the Namespace `metadata-access` and their labels:
 
+```sh
 ➜ k -n metadata-access get pods --show-labels
 NAME                    ...   LABELS
 pod1-7d67b4ff9-xrcd7    ...   app=pod1,pod-template-hash=7d67b4ff9
 pod2-7b6fc66944-2hc7n   ...   app=pod2,pod-template-hash=7b6fc66944
 pod3-7dc879bd59-hkgrr   ...   app=pod3,role=metadata-accessor,pod-template-hash=7dc879bd59
+```
+
 There are three Pods in the Namespace and one of them has the label role=metadata-accessor.
 
 Check access to the metadata server from the Pods:
 
+```sh
 ➜ k exec -it -n metadata-access pod1-7d67b4ff9-xrcd7 -- curl http://192.168.100.21:32000
 metadata server
 
@@ -1860,11 +1863,16 @@ metadata server
 
 ➜ k exec -it -n metadata-access pod3-7dc879bd59-hkgrr -- curl http://192.168.100.21:32000
 metadata server
+```
+
 All three are able to access the metadata server.
 
 To restrict the access, we create a NetworkPolicy to deny access to the specific IP.
 
+```sh
 vim 13_metadata-deny.yaml
+```
+```yaml
 # 13_metadata-deny.yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -1881,15 +1889,18 @@ spec:
         cidr: 0.0.0.0/0
         except:
         - 192.168.100.21/32
+```
+
+```sh
 k -f 13_metadata-deny.yaml apply
- 
+``` 
 
-NOTE: You should know about general default-deny K8s NetworkPolcies.
+###### NOTE: You should know about general default-deny K8s NetworkPolcies.
 
- 
 
 Verify that access to the metadata server has been blocked, but other endpoints are still accessible:
 
+```sh
 ➜ k exec -it -n metadata-access pod1-7d67b4ff9-xrcd7 -- curl http://192.168.100.21:32000
 curl: (28) Failed to connect to 192.168.100.21 port 32000: Operation timed out
 command terminated with exit code 28
@@ -1905,11 +1916,17 @@ age: 13
 content-length: 22252
 server: Netlify
 x-nf-request-id: 1d94a1d1-6bac-4a98-b065-346f661f1db1-393998290
+```
+
 Similarly, verify for the other two Pods.
 
 Now create another NetworkPolicy that allows access to the metadata server from Pods with label role=metadata-accessor.
 
+```sh
 vim 13_metadata-allow.yaml
+```
+
+```yaml
 # 13_metadata-allow.yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -1926,18 +1943,27 @@ spec:
   - to:
     - ipBlock:
         cidr: 192.168.100.21/32
+```
+
+```sh
 k -f 13_metadata-allow.yaml apply
+```
+
 Verify that required Pod has access to metadata endpoint and others do not:
 
+```sh
 ➜ k -n metadata-access exec pod3-7dc879bd59-hkgrr -- curl http://192.168.100.21:32000
 metadata server
 
 ➜ k -n metadata-access exec pod2-7b6fc66944-9ngzr  -- curl http://192.168.100.21:32000
 ^Ccommand terminated with exit code 130
+```
+
 It only works for the Pod having the label. With this we implemented the required security restrictions.
 
-If a Pod doesn't have a matching NetworkPolicy then all traffic is allowed from and to it. Once a Pod has a matching NP then the contained rules are additive. This means that for Pods having label metadata-accessor the rules will be combined to:
+If a Pod doesn't have a matching NetworkPolicy then all traffic is allowed from and to it. Once a Pod has a matching NP then the contained rules are additive. This means that for Pods having label `metadata-accessor` the rules will be combined to:
 
+```yaml
 # merged policies into one for pods with label metadata-accessor
 spec:
   podSelector: {}
@@ -1952,26 +1978,30 @@ spec:
   - to: # second rule
     - ipBlock: # condition 1
         cidr: 192.168.100.21/32
+```
+
 We can see that the merged NP contains two separate rules with one condition each. We could read it as:
 
+```yaml
 Allow outgoing traffic if:
 (destination is 0.0.0.0/0 but not 192.168.100.21/32) OR (destination is 192.168.100.21/32)
+```
+
 Hence it allows Pods with label metadata-accessor to access everything.
 
  
 
- 
-
 ## Question 14 | Syscall Activity
-Task weight: 4%
+
+#### Task weight: 4%
 
  
 
-Use context: kubectl config use-context workload-prod
+Use context: `kubectl config use-context workload-prod`
 
  
 
-There are Pods in Namespace team-yellow. A security investigation noticed that some processes running in these Pods are using the Syscall kill, which is forbidden by a Team Yellow internal policy.
+There are Pods in Namespace `team-yellow`. A security investigation noticed that some processes running in these Pods are using the Syscall `kill`, which is forbidden by a Team Yellow internal policy.
 
 Find the offending Pod(s) and remove these by reducing the replicas of the parent Deployment to 0.
 
