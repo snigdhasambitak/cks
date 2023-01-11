@@ -43,7 +43,6 @@
   * [Read the important tips](#read-the-important-tips)
   * [Read the FAQ](#read-the-faq)
 - [Kubernetes documentation](#kubernetes-documentation)
-          + [NOTE: Verify the list [here](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks#cks)](#note--verify-the-list--here--https---docslinuxfoundationorg-tc-docs-certification-faq-cka-ckad-cks-cks-)
 - [CKS clusters](#cks-clusters)
 - [The Test Environment / Browser Terminal](#the-test-environment---browser-terminal)
   * [Laggin](#laggin)
