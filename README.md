@@ -1,6 +1,6 @@
 - [CKS Simulator Kubernetes 1.25](#cks-simulator-kubernetes-125)
   * [Pre Setup](#pre-setup)
-  * [Question 1 | Contexts](#question-1---contexts)
+  * [Question 1 | Contexts](#question-1--contexts)
   * [Question 2 | Runtime Security with Falco](#question-2---runtime-security-with-falco)
   * [Question 3 | Apiserver Security](#question-3---apiserver-security)
   * [Question 4 | Pod Security Standard](#question-4---pod-security-standard)
