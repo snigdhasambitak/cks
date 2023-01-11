@@ -68,8 +68,6 @@
     + [Indent multiple lines](#indent-multiple-lines)
   * [Split terminal screen](#split-terminal-screen)
 
-<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
-
 
 # CKS Simulator Kubernetes 1.25
 https://killer.sh
