@@ -4215,7 +4215,7 @@ https://github.com/cncf/curriculum
 
 ## Read the Handbook
 
-https://docs.linuxfoundation.org/tc-docs/certification/lf-candidate-handbook
+https://docs.linuxfoundation.org/tc-docs/certification/lf-handbook1
 
 ## Read the important tips
 
